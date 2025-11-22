@@ -1,0 +1,1 @@
+# Routes module for Flask Image Chat application

@@ -1,0 +1,1 @@
+# Services module for Flask Image Chat application

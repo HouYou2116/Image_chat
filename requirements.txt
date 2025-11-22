@@ -1,0 +1,16 @@
+# Web Framework
+Flask==3.1.2
+
+# AI Providers Integration
+google-genai==1.32.0
+requests==2.32.3
+openai>=1.0.0
+
+# Image Processing
+Pillow==11.3.0
+
+# Development/Testing (optional)
+flake8==7.1.1
+
+# Python version requirement
+# Requires Python 3.7+
