@@ -17,7 +17,8 @@ const modelsByProvider = {
     ],
     'tuzi': [
         { value: 'gemini-3-pro-image-preview', text: '兔子 - Gemini 3 Pro Image Preview' },
-        { value: 'gemini-3-pro-image-preview-hd', text: '兔子 - Gemini 3 Pro Image Preview HD' },
+        { value: 'gemini-3-pro-image-preview-2k', text: '兔子 - Gemini 3 Pro Image Preview 2k' },
+        { value: 'gemini-3-pro-image-preview-4k', text: '兔子 - Gemini 3 Pro Image Preview 4k' },
         { value: 'gemini-2.5-flash-image-vip', text: '兔子 - Gemini 2.5 Flash Image VIP' },
         { value: 'gemini-2.5-flash-image', text: '兔子 - Gemini 2.5 Flash Image' }
     ]
