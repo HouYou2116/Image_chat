@@ -9,7 +9,8 @@ let currentProvider = 'google';
 // 定义服务商模型映射
 const modelsByProvider = {
     'google': [
-        { value: 'google/gemini-native', text: 'Google - Gemini 2.5 Flash (原生)' }
+        { value: 'google/gemini-2.5-flash-image', text: 'gemini-2.5-flash-image' },
+        { value: 'google/gemini-3-pro-image-preview', text: 'gemini-3-pro-image-preview' }
     ],
     'openrouter': [
         { value: 'google/gemini-2.5-flash-image-preview:free', text: 'OpenRouter - Gemini Flash (免费)' },
