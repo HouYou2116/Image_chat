@@ -142,18 +142,23 @@
    ```bash
    # 默认服务商（google / openrouter / tuzi）
    DEFAULT_PROVIDER=google
-   
+
    # 默认温度值
    DEFAULT_TEMPERATURE_EDIT=0.7
    DEFAULT_TEMPERATURE_GENERATE=0.8
-   
+
    # 兔子 API 地址（可选，用于自定义）
    TUZI_BASE_URL=https://api.tu-zi.com/v1
+
+   # OpenRouter Headers（可选，用于生产环境）
+   OPENROUTER_REFERER=http://localhost:5000
+   OPENROUTER_TITLE=Image CHAT
    ```
 
 3. 重启应用使配置生效
 
 > 💡 环境变量是可选的，不配置也能正常使用
+> 💡 OpenRouter Headers 为可选配置，用于满足 OpenRouter API 的要求。开发环境使用默认值即可，生产环境建议设置为实际域名。
 
 ## 🎯 支持的模型
 
@@ -162,8 +167,12 @@
 - `gemini-3-pro-image-preview` - Gemini 3 Pro（图像预览版）
 
 ### OpenRouter
-- `google/gemini-2.5-flash-image-preview:free` - Gemini Flash（免费版）
-- `google/gemini-2.5-flash-image-preview` - Gemini Flash（标准版）
+- `google/gemini-2.5-flash-image` - Gemini 2.5 Flash (Stable)
+- `google/gemini-3-pro-image-preview` - Gemini 3 Pro
+- `openai/gpt-5-image-mini` - GPT-5 Image Mini
+- `openai/gpt-5-image` - GPT-5 Image
+- `black-forest-labs/flux.2-flex` - Flux 2 Flex
+- `black-forest-labs/flux.2-pro` - Flux 2 Pro
 
 ### 兔子 API
 - `gemini-2.5-flash-image` - Gemini 2.5 Flash

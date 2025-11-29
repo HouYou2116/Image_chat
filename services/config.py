@@ -31,19 +31,22 @@ class AppConfig:
         },
         'openrouter': {
             'name': 'OpenRouter',
-            'default_model': 'google/gemini-2.5-flash-image-preview:free',
+            'default_model': 'google/gemini-2.5-flash-image',
             'api_key_prefix': 'sk-or-',
             'api_key_label': 'OpenRouter API Key',
             'api_key_placeholder': '输入您的 OpenRouter API Key',
-            'base_url': 'https://openrouter.ai/api/v1/chat/completions',
             'models': [
-                {'value': 'google/gemini-2.5-flash-image-preview:free', 'text': 'OpenRouter - Gemini Flash (免费)'},
-                {'value': 'google/gemini-2.5-flash-image-preview', 'text': 'OpenRouter - Gemini Flash (标准)'}
-            ],
-            # 模型特定参数配置
-            'model_params': {
-                'gemini': {'max_tokens': 4000, 'stream': False}
-            }
+                # Gemini 2.5 系列
+                {'value': 'google/gemini-2.5-flash-image', 'text': 'Gemini 2.5 Flash (Stable)'},
+                # Gemini 3 系列
+                {'value': 'google/gemini-3-pro-image-preview', 'text': 'Gemini 3 Pro'},
+                # GPT-5 系列
+                {'value': 'openai/gpt-5-image-mini', 'text': 'GPT-5 Image Mini'},
+                {'value': 'openai/gpt-5-image', 'text': 'GPT-5 Image'},
+                # Flux 系列
+                {'value': 'black-forest-labs/flux.2-flex', 'text': 'Flux 2 Flex'},
+                {'value': 'black-forest-labs/flux.2-pro', 'text': 'Flux 2 Pro'}
+            ]
         },
         'tuzi': {
             'name': '兔子API',
