@@ -7,11 +7,12 @@ from PIL import Image
 from io import BytesIO
 from .base import ImageProvider
 from ..logging_config import log_provider_message, log_api_call, log_error, log_image_operation
+from ..config import get_provider_base_url
 
 class TuziProvider(ImageProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.base_url = "https://api.tu-zi.com/v1"
+        self.base_url = get_provider_base_url('tuzi')
         self.client = OpenAI(
             api_key=api_key,
             base_url=self.base_url

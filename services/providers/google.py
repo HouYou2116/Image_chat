@@ -35,8 +35,8 @@ class GoogleProvider(ImageProvider):
                 contents.append(pil_image)
 
             # 调用Google Gemini API（按照官方示例）
-            # 对于图像生成，使用特定的模型名称
-            gemini_model = "gemini-2.5-flash-image-preview"
+            # 使用传入的 model 参数
+            gemini_model = model
             log_provider_message('google', f"使用Google Gemini模型: {gemini_model}")
 
             try:

@@ -5,29 +5,96 @@ let editDownloadUrls = [];
 let currentMode = 'edit';
 let apiKey = null;
 let currentProvider = 'google';
+let appConfig = null;  // 存储从后端加载的配置
 
-// 定义服务商模型映射
-const modelsByProvider = {
-    'google': [
-        { value: 'google/gemini-2.5-flash-image', text: 'gemini-2.5-flash-image' },
-        { value: 'google/gemini-3-pro-image-preview', text: 'gemini-3-pro-image-preview' }
-    ],
-    'openrouter': [
-        { value: 'google/gemini-2.5-flash-image-preview:free', text: 'OpenRouter - Gemini Flash (免费)' },
-        { value: 'google/gemini-2.5-flash-image-preview', text: 'OpenRouter - Gemini Flash (标准)' }
-    ],
-    'tuzi': [
-        { value: 'gemini-3-pro-image-preview', text: '兔子 - Gemini 3 Pro Image Preview' },
-        { value: 'gemini-3-pro-image-preview-2k', text: '兔子 - Gemini 3 Pro Image Preview 2k' },
-        { value: 'gemini-3-pro-image-preview-4k', text: '兔子 - Gemini 3 Pro Image Preview 4k' },
-        { value: 'gemini-2.5-flash-image-vip', text: '兔子 - Gemini 2.5 Flash Image VIP' },
-        { value: 'gemini-2.5-flash-image', text: '兔子 - Gemini 2.5 Flash Image' }
-    ]
-};
+// 应用初始化函数
+async function initApp() {
+    // === 步骤 A：强制重置 UI 状态（关键） ===
+    console.log('[Init] 开始重置 UI 状态');
+
+    // 1. 重置编辑按钮状态
+    showLoading(false);
+
+    // 2. 重置生成按钮状态
+    showGenerateLoading(false);
+
+    // 3. 隐藏所有错误信息
+    hideError();
+
+    console.log('[Init] UI 状态重置完成');
+
+    // === 步骤 B：加载并同步后端配置 ===
+    console.log('[Init] 开始加载后端配置');
+    await loadConfiguration();
+
+    // === 步骤 C：强制更新 Provider 下拉框 ===
+    const providerSelector = document.getElementById('providerSelector');
+    if (providerSelector && appConfig) {
+        // 强制设置下拉框值
+        providerSelector.value = appConfig.defaultProvider;
+        // 同步全局变量
+        currentProvider = appConfig.defaultProvider;
+        console.log('[Init] Provider 下拉框已更新为:', currentProvider);
+    }
+
+    // === 步骤 D：更新温度滑块 ===
+    if (appConfig) {
+        // 编辑模式温度滑块
+        const editSlider = document.getElementById('temperatureSlider');
+        const editValue = document.getElementById('temperatureValue');
+        if (editSlider && editValue) {
+            const defaultEditTemp = appConfig.defaultTemperature.edit;
+            editSlider.value = defaultEditTemp.toString();
+            editValue.textContent = defaultEditTemp.toFixed(1);
+            console.log('[Init] 编辑温度已更新为:', defaultEditTemp);
+        }
+
+        // 生成模式温度滑块
+        const genSlider = document.getElementById('generateTemperatureSlider');
+        const genValue = document.getElementById('generateTemperatureValue');
+        if (genSlider && genValue) {
+            const defaultGenTemp = appConfig.defaultTemperature.generate;
+            genSlider.value = defaultGenTemp.toString();
+            genValue.textContent = defaultGenTemp.toFixed(1);
+            console.log('[Init] 生成温度已更新为:', defaultGenTemp);
+        }
+    }
+
+    // === 步骤 E：刷新模型列表 ===
+    updateUIForProvider();
+
+    console.log('[Init] 应用初始化完成');
+}
+
+// 初始化温度滑块监听器
+function initTemperatureSliders() {
+    // 编辑模式温度滑块
+    const temperatureSlider = document.getElementById('temperatureSlider');
+    const temperatureValue = document.getElementById('temperatureValue');
+
+    if (temperatureSlider && temperatureValue) {
+        temperatureSlider.addEventListener('input', function() {
+            temperatureValue.textContent = this.value;
+        });
+    }
+
+    // 生成模式温度滑块
+    const generateTemperatureSlider = document.getElementById('generateTemperatureSlider');
+    const generateTemperatureValue = document.getElementById('generateTemperatureValue');
+
+    if (generateTemperatureSlider && generateTemperatureValue) {
+        generateTemperatureSlider.addEventListener('input', function() {
+            generateTemperatureValue.textContent = this.value;
+        });
+    }
+}
 
 // 页面加载时初始化
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化服务商选择器事件监听
+document.addEventListener('DOMContentLoaded', async function() {
+    // 1. 执行统一初始化流程
+    await initApp();
+
+    // 2. 注册 Provider 选择器事件监听
     const providerSelector = document.getElementById('providerSelector');
     if (providerSelector) {
         providerSelector.addEventListener('change', function() {
@@ -35,41 +102,124 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUIForProvider();
         });
     }
-    
-    // 初始化UI
-    updateUIForProvider();
+
+    // 3. 初始化温度滑块监听器
+    initTemperatureSliders();
 });
+
+// 新增：配置加载函数
+async function loadConfiguration() {
+    try {
+        showConfigLoading('正在加载配置...');
+        const response = await fetch('/api/config');
+        const result = await response.json();
+
+        if (result.success) {
+            appConfig = result.config;
+            currentProvider = appConfig.defaultProvider;
+            console.log('配置加载成功:', appConfig);
+        } else {
+            throw new Error(result.error || '配置加载失败');
+        }
+    } catch (error) {
+        console.error('配置加载错误:', error);
+        showError('配置加载失败，将使用默认配置');
+
+        // 降级方案：使用硬编码默认配置
+        appConfig = {
+            defaultProvider: 'google',
+            defaultTemperature: {
+                edit: 0.7,
+                generate: 0.8
+            },
+            providers: {
+                google: {
+                    name: 'Google Gemini',
+                    apiKeyPlaceholder: '输入您的 Google Gemini API Key',
+                    apiKeyPrefix: 'AIza',
+                    defaultModel: 'gemini-2.5-flash-image-preview',
+                    models: [
+                        {value: 'gemini-2.5-flash-image-preview', text: 'Gemini 2.5 Flash'}
+                    ]
+                },
+                openrouter: {
+                    name: 'OpenRouter',
+                    apiKeyPlaceholder: '输入您的 OpenRouter API Key',
+                    apiKeyPrefix: 'sk-or-',
+                    defaultModel: 'google/gemini-2.5-flash-image-preview:free',
+                    models: [
+                        {value: 'google/gemini-2.5-flash-image-preview:free', text: 'OpenRouter - Gemini Flash'}
+                    ]
+                },
+                tuzi: {
+                    name: '兔子API',
+                    apiKeyPlaceholder: '输入您的兔子 API Key',
+                    apiKeyPrefix: 'sk-',
+                    defaultModel: 'gemini-2.5-flash-image',
+                    models: [
+                        {value: 'gemini-2.5-flash-image', text: '兔子 - Gemini 2.5 Flash'}
+                    ]
+                }
+            }
+        };
+        currentProvider = appConfig.defaultProvider;
+
+        // 不再抛出错误，允许应用继续运行
+    } finally {
+        hideConfigLoading();
+    }
+}
+
+// 辅助函数：显示配置加载提示
+function showConfigLoading(message) {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'config-loading';
+    loadingDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#4CAF50;color:white;padding:10px;text-align:center;z-index:9999';
+    loadingDiv.textContent = message;
+    document.body.prepend(loadingDiv);
+}
+
+function hideConfigLoading() {
+    const loadingDiv = document.getElementById('config-loading');
+    if (loadingDiv) loadingDiv.remove();
+}
 
 // 核心UI更新函数
 function updateUIForProvider() {
+    if (!appConfig) {
+        console.error('配置未加载');
+        return;
+    }
+
     const provider = currentProvider;
-    
-    // 更新API Key标签和占位符
+    const providerConfig = appConfig.providers[provider];
+
+    if (!providerConfig) {
+        console.error('未找到 provider 配置:', provider);
+        return;
+    }
+
+    // 更新 API Key 标签和占位符（使用配置中的值）
     const apiKeyLabel = document.getElementById('apiKeyLabel');
     const apiKeyInput = document.getElementById('apiKeyInput');
-    
-    if (provider === 'google') {
-        apiKeyLabel.textContent = 'Google API Key：';
-        apiKeyInput.placeholder = '输入您的 Google Gemini API Key';
-    } else if (provider === 'openrouter') {
-        apiKeyLabel.textContent = 'OpenRouter API Key：';
-        apiKeyInput.placeholder = '输入您的 OpenRouter API Key';
-    } else if (provider === 'tuzi') {
-        apiKeyLabel.textContent = '兔子 API Key：';
-        apiKeyInput.placeholder = '输入您的兔子 API Key (sk-开头)';
-    }
-    
+
+    apiKeyLabel.textContent = providerConfig.name + ' API Key：';
+    apiKeyInput.placeholder = providerConfig.apiKeyPlaceholder;
+
     // 更新模型选项
     updateModelSelectors();
-    
-    // 加载对应的API Key
+
+    // 加载对应的 API Key
     loadApiKeyForProvider();
 }
 
 // 更新模型选择器选项
 function updateModelSelectors() {
-    const models = modelsByProvider[currentProvider] || [];
-    
+    if (!appConfig) return;
+
+    const providerConfig = appConfig.providers[currentProvider];
+    const models = providerConfig.models;
+
     // 更新编辑模式模型选择器
     const modelSelector = document.getElementById('modelSelector');
     if (modelSelector) {
@@ -80,8 +230,10 @@ function updateModelSelectors() {
             option.textContent = model.text;
             modelSelector.appendChild(option);
         });
+        // 设置默认值
+        modelSelector.value = providerConfig.defaultModel;
     }
-    
+
     // 更新生成模式模型选择器
     const generateModelSelector = document.getElementById('generateModelSelector');
     if (generateModelSelector) {
@@ -92,6 +244,8 @@ function updateModelSelectors() {
             option.textContent = model.text;
             generateModelSelector.appendChild(option);
         });
+        // 设置默认值
+        generateModelSelector.value = providerConfig.defaultModel;
     }
 }
 
@@ -380,40 +534,26 @@ function downloadAllImages() {
 
 // 保存API Key
 function saveApiKey() {
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const key = apiKeyInput.value.trim();
-    
-    if (!key) {
-        updateApiKeyStatus('请输入API Key', 'error');
+    if (!appConfig) {
+        updateApiKeyStatus('配置未加载', 'error');
         return;
-    }
-    
-    // 根据不同服务商验证API Key格式
-    let isValidFormat = false;
-    if (currentProvider === 'google' && key.startsWith('AIza')) {
-        isValidFormat = true;
-    } else if (currentProvider === 'openrouter' && key.startsWith('sk-or-')) {
-        isValidFormat = true;
-    } else if (currentProvider === 'openrouter' && key.length > 10) {
-        // OpenRouter API Key可能有不同的格式，这里放宽验证
-        isValidFormat = true;
-    } else if (currentProvider === 'tuzi' && key.startsWith('sk-')) {
-        isValidFormat = true;
     }
 
-    if (!isValidFormat) {
-        let errorMsg = 'API Key格式不正确';
-        if (currentProvider === 'google') {
-            errorMsg += '（应以AIza开头）';
-        } else if (currentProvider === 'tuzi') {
-            errorMsg += '（应以sk-开头）';
-        } else if (currentProvider === 'openrouter') {
-            errorMsg += '（应以sk-or-开头）';
-        }
-        updateApiKeyStatus(errorMsg, 'error');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const key = apiKeyInput.value.trim();
+
+    if (!key) {
+        updateApiKeyStatus('请输入 API Key', 'error');
         return;
     }
-    
+
+    // 使用配置中的 prefix 验证
+    const expectedPrefix = appConfig.providers[currentProvider].apiKeyPrefix;
+    if (!key.startsWith(expectedPrefix)) {
+        updateApiKeyStatus(`API Key 格式不正确（应以 ${expectedPrefix} 开头）`, 'error');
+        return;
+    }
+
     // 保存到localStorage（使用服务商特定的key）
     const storageKey = `api_key_${currentProvider}`;
     localStorage.setItem(storageKey, key);
@@ -576,28 +716,5 @@ document.addEventListener('keydown', function(e) {
         } else {
             generateImage();
         }
-    }
-});
-
-// 温度滑块值显示逻辑
-document.addEventListener('DOMContentLoaded', function() {
-    // 编辑模式温度滑块
-    const temperatureSlider = document.getElementById('temperatureSlider');
-    const temperatureValue = document.getElementById('temperatureValue');
-    
-    if (temperatureSlider && temperatureValue) {
-        temperatureSlider.addEventListener('input', function() {
-            temperatureValue.textContent = this.value;
-        });
-    }
-    
-    // 生成模式温度滑块
-    const generateTemperatureSlider = document.getElementById('generateTemperatureSlider');
-    const generateTemperatureValue = document.getElementById('generateTemperatureValue');
-    
-    if (generateTemperatureSlider && generateTemperatureValue) {
-        generateTemperatureSlider.addEventListener('input', function() {
-            generateTemperatureValue.textContent = this.value;
-        });
     }
 });

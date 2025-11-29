@@ -5,6 +5,7 @@ import re
 import time
 from .base import ImageProvider
 from ..logging_config import log_provider_message, log_api_call, log_error, log_image_operation
+from ..config import get_model_params
 
 class OpenRouterProvider(ImageProvider):
     def __init__(self, api_key: str):
@@ -42,13 +43,11 @@ class OpenRouterProvider(ImageProvider):
                 "temperature": temperature
             }
 
-            # 为Gemini模型添加特殊参数
-            if 'gemini' in model.lower():
-                data.update({
-                    "max_tokens": 4000,
-                    "stream": False,
-                })
-                log_provider_message('openrouter', f"为Gemini模型添加特殊参数: max_tokens=4000, stream=False")
+            # 根据配置为特定模型添加参数
+            model_params = get_model_params('openrouter', model)
+            if model_params:
+                data.update(model_params)
+                log_provider_message('openrouter', f"为模型添加特殊参数: {model_params}")
 
             # 发送请求到OpenRouter
             log_provider_message('openrouter', f"发送OpenRouter请求 {i+1}")

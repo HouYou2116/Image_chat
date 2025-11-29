@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 from services.image_service import process_image_edit, process_image_generation
 from services.logging_config import log_error, api_logger
+from services.config import get_frontend_config, get_default_provider, get_default_model, get_default_temperature
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -12,11 +13,12 @@ def edit_image():
     api_logger.info("开始处理图像编辑请求")
 
     try:
-        # 1. 提取HTTP参数
+        # 1. 提取HTTP参数（使用配置中心的默认值）
         api_key = request.form.get('api_key')
-        provider = request.form.get('provider', 'google')
-        model = request.form.get('model', 'gemini-2.5-flash-image-preview')
-        temperature = float(request.form.get('temperature', 0.7))
+        default_provider = get_default_provider()
+        provider = request.form.get('provider', default_provider)
+        model = request.form.get('model', get_default_model(provider))
+        temperature = float(request.form.get('temperature', get_default_temperature('edit')))
         instruction = request.form.get('instruction', '')
         image_count = int(request.form.get('image_count', 1))
         uploaded_files = request.files.getlist('image')
@@ -66,11 +68,12 @@ def generate_image():
     api_logger.info("开始处理图像生成请求")
 
     try:
-        # 1. 提取HTTP参数
+        # 1. 提取HTTP参数（使用配置中心的默认值）
         api_key = request.form.get('api_key')
-        provider = request.form.get('provider', 'google')
-        model = request.form.get('model', 'gemini-2.5-flash-image-preview')
-        temperature = float(request.form.get('temperature', 0.8))  # 生成模式默认0.8
+        default_provider = get_default_provider()
+        provider = request.form.get('provider', default_provider)
+        model = request.form.get('model', get_default_model(provider))
+        temperature = float(request.form.get('temperature', get_default_temperature('generate')))
         description = request.form.get('description', '')
         image_count = int(request.form.get('image_count', 1))
 
@@ -110,3 +113,13 @@ def generate_image():
         total_duration = (datetime.now() - start_time).total_seconds()
         log_error("图像生成异常", str(e), f"处理耗时: {total_duration:.2f}秒")
         return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/config', methods=['GET'])
+def get_config():
+    """获取前端配置"""
+    try:
+        config = get_frontend_config()
+        return jsonify({'success': True, 'config': config})
+    except Exception as e:
+        log_error("配置获取失败", str(e), "")
+        return jsonify({'success': False, 'error': '配置加载失败'}), 500
