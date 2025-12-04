@@ -25,12 +25,25 @@ def edit_image():
 
         api_logger.info(f"请求参数: provider={provider}, model={model}, temperature={temperature}")
 
-        # 2. 基础验证：API Key存在性
+        # 2. 提取 Google 专用参数
+        extra_params = {}
+        if provider == 'google':
+            aspect_ratio = request.form.get('aspect_ratio')
+            resolution = request.form.get('resolution')
+
+            if aspect_ratio:
+                extra_params['aspect_ratio'] = aspect_ratio
+            if resolution:
+                extra_params['resolution'] = resolution
+
+            api_logger.info(f"Google 图像参数: aspect_ratio={aspect_ratio}, resolution={resolution}")
+
+        # 3. 基础验证：API Key存在性
         if not api_key:
             log_error("参数验证", "缺少API Key", "图像编辑请求缺少api_key参数")
             return jsonify({'error': '请提供API Key'}), 400
 
-        # 3. 调用服务层处理业务逻辑
+        # 4. 调用服务层处理业务逻辑
         result_images = process_image_edit(
             provider_name=provider,
             api_key=api_key,
@@ -38,7 +51,8 @@ def edit_image():
             temperature=temperature,
             image_count=image_count,
             instruction=instruction,
-            uploaded_files=uploaded_files
+            uploaded_files=uploaded_files,
+            **extra_params
         )
 
         # 4. 构建成功响应
@@ -79,19 +93,33 @@ def generate_image():
 
         api_logger.info(f"请求参数: provider={provider}, model={model}, temperature={temperature}")
 
-        # 2. 基础验证：API Key存在性
+        # 2. 提取 Google 专用参数
+        extra_params = {}
+        if provider == 'google':
+            aspect_ratio = request.form.get('aspect_ratio')
+            resolution = request.form.get('resolution')
+
+            if aspect_ratio:
+                extra_params['aspect_ratio'] = aspect_ratio
+            if resolution:
+                extra_params['resolution'] = resolution
+
+            api_logger.info(f"Google 图像参数: aspect_ratio={aspect_ratio}, resolution={resolution}")
+
+        # 3. 基础验证：API Key存在性
         if not api_key:
             log_error("参数验证", "缺少API Key", "图像生成请求缺少api_key参数")
             return jsonify({'error': '请提供API Key'}), 400
 
-        # 3. 调用服务层处理业务逻辑
+        # 4. 调用服务层处理业务逻辑
         result_images = process_image_generation(
             provider_name=provider,
             api_key=api_key,
             model=model,
             temperature=temperature,
             image_count=image_count,
-            description=description
+            description=description,
+            **extra_params
         )
 
         # 4. 构建成功响应

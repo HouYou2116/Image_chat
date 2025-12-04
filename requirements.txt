@@ -2,7 +2,7 @@
 Flask==3.1.2
 
 # AI Providers Integration
-google-genai==1.32.0
+google-genai>=1.53.0  # Required for types.ImageConfig support (aspect_ratio, image_size)
 requests==2.32.3
 openai>=1.0.0
 

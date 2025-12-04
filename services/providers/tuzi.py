@@ -37,9 +37,9 @@ class TuziProvider(ImageProvider):
         )
 
     def generate(self, prompt: str, images: list, temperature: float,
-                 model: str, image_count: int) -> list[bytes]:
+                 model: str, image_count: int, **kwargs) -> list[bytes]:
         """
-        生成图像（统一使用 Chat Completions API）
+        使用 Tuzi API 生成图像（统一使用 Chat Completions API）（忽略 kwargs 中的额外参数）
 
         Args:
             prompt: 用户指令

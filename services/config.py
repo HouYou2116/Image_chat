@@ -25,9 +25,39 @@ class AppConfig:
             'api_key_label': 'Google API Key',
             'api_key_placeholder': '输入您的 Google Gemini API Key',
             'models': [
-                {'value': 'google/gemini-2.5-flash-image', 'text': 'gemini-2.5-flash-image'},
-                {'value': 'google/gemini-3-pro-image-preview', 'text': 'gemini-3-pro-image-preview'}
-            ]
+                {'value': 'google/gemini-2.5-flash-image', 'text': 'Gemini 2.5 Flash Image'},
+                {'value': 'google/gemini-3-pro-image-preview', 'text': 'Gemini 3 Pro Image Preview'}
+            ],
+            # 图像参数配置
+            'image_options': {
+                'aspect_ratios': [
+                    {'value': '1:1', 'text': '1:1 (正方形)'},
+                    {'value': '2:3', 'text': '2:3'},
+                    {'value': '3:2', 'text': '3:2'},
+                    {'value': '3:4', 'text': '3:4 (竖版照片)'},
+                    {'value': '4:3', 'text': '4:3 (横版照片)'},
+                    {'value': '4:5', 'text': '4:5'},
+                    {'value': '5:4', 'text': '5:4'},
+                    {'value': '9:16', 'text': '9:16 (竖屏)'},
+                    {'value': '16:9', 'text': '16:9 (宽屏)'},
+                    {'value': '21:9', 'text': '21:9 (超宽)'}
+                ],
+                'resolutions': [
+                    {'value': '1K', 'text': '1K (低分辨率)'},
+                    {'value': '2K', 'text': '2K (中分辨率)'},
+                    {'value': '4K', 'text': '4K (高分辨率)'}
+                ],
+                'model_support': {
+                    'google/gemini-3-pro-image-preview': {
+                        'aspect_ratio': True,
+                        'resolution': True
+                    },
+                    'google/gemini-2.5-flash-image': {
+                        'aspect_ratio': True,
+                        'resolution': False
+                    }
+                }
+            }
         },
         'openrouter': {
             'name': 'OpenRouter',
@@ -37,9 +67,9 @@ class AppConfig:
             'api_key_placeholder': '输入您的 OpenRouter API Key',
             'models': [
                 # Gemini 2.5 系列
-                {'value': 'google/gemini-2.5-flash-image', 'text': 'Gemini 2.5 Flash (Stable)'},
+                {'value': 'google/gemini-2.5-flash-image', 'text': 'Gemini 2.5 Flash Image'},
                 # Gemini 3 系列
-                {'value': 'google/gemini-3-pro-image-preview', 'text': 'Gemini 3 Pro'},
+                {'value': 'google/gemini-3-pro-image-preview', 'text': 'Gemini 3 Pro Image Preview'},
                 # GPT-5 系列
                 {'value': 'openai/gpt-5-image-mini', 'text': 'GPT-5 Image Mini'},
                 {'value': 'openai/gpt-5-image', 'text': 'GPT-5 Image'},
@@ -170,6 +200,10 @@ def get_frontend_config() -> Dict[str, Any]:
             'defaultModel': config['default_model'],
             'models': config['models']
         }
+
+        # Google 专用：添加图像参数配置
+        if provider_name == 'google' and 'image_options' in config:
+            frontend_providers[provider_name]['imageOptions'] = config['image_options']
 
     return {
         'defaultProvider': get_default_provider(),

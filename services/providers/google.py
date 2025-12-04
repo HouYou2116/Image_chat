@@ -10,11 +10,40 @@ class GoogleProvider(ImageProvider):
         self.api_key = api_key
         self.client = genai.Client(api_key=api_key)
 
-    def generate(self, prompt: str, images: list, temperature: float, model: str, image_count: int) -> list[bytes]:
+        # 模型能力配置
+        self.model_capabilities = {
+            'gemini-3-pro-image-preview': {
+                'supports_aspect_ratio': True,
+                'supports_resolution': True
+            },
+            'gemini-2.5-flash-image': {
+                'supports_aspect_ratio': True,
+                'supports_resolution': False
+            }
+        }
+
+    def generate(self, prompt: str, images: list, temperature: float, model: str, image_count: int, **kwargs) -> list[bytes]:
         """使用Google Gemini生成图像"""
         generated_images = []
 
-        log_provider_message('google', f"开始图像生成任务: prompt长度={len(prompt)}, 输入图片数量={len(images)}, 生成数量={image_count}, temperature={temperature}")
+        # 提取扩展参数
+        aspect_ratio = kwargs.get('aspect_ratio')
+        resolution = kwargs.get('resolution')
+
+        log_provider_message('google', f"开始图像生成任务: prompt长度={len(prompt)}, 输入图片数量={len(images)}, 生成数量={image_count}, temperature={temperature}, aspect_ratio={aspect_ratio}, resolution={resolution}")
+
+        # 检测模型能力（去掉 "google/" 前缀）
+        model_name = model.split('/')[-1] if '/' in model else model
+        capabilities = self._get_model_capabilities(model_name)
+
+        # 过滤不支持的参数
+        filtered_aspect_ratio = aspect_ratio if capabilities['supports_aspect_ratio'] else None
+        filtered_resolution = resolution if capabilities['supports_resolution'] else None
+
+        if aspect_ratio and not filtered_aspect_ratio:
+            log_provider_message('google', f"警告: 模型 {model_name} 不支持 aspect_ratio 参数", "WARNING")
+        if resolution and not filtered_resolution:
+            log_provider_message('google', f"警告: 模型 {model_name} 不支持 resolution 参数", "WARNING")
 
         # 将二进制图片数据转换为PIL Image对象
         pil_images = []
@@ -35,16 +64,24 @@ class GoogleProvider(ImageProvider):
                 contents.append(pil_image)
 
             # 调用Google Gemini API（按照官方示例）
-            # 使用传入的 model 参数
-            gemini_model = model
+            # 使用处理过的前缀去除后的 model_name
+            gemini_model = model_name
             log_provider_message('google', f"使用Google Gemini模型: {gemini_model}")
 
             try:
                 log_api_call('google', 'API调用开始', f"模型: {gemini_model}, 内容长度: {len(str(contents))}")
+
+                # 构建配置
+                config = self._build_generation_config(
+                    temperature=temperature,
+                    aspect_ratio=filtered_aspect_ratio,
+                    resolution=filtered_resolution
+                )
+
                 response = self.client.models.generate_content(
                     model=gemini_model,
                     contents=contents,
-                    config=types.GenerateContentConfig(temperature=temperature)
+                    config=config
                 )
                 log_api_call('google', 'API调用成功', f"响应类型: {type(response)}")
             except Exception as e:
@@ -71,3 +108,50 @@ class GoogleProvider(ImageProvider):
 
         log_provider_message('google', f"Google Gemini生成完成: 成功生成 {len(generated_images)} 张图片")
         return generated_images
+
+    def _get_model_capabilities(self, model_name: str) -> dict:
+        """获取模型能力配置"""
+        # 移除可能的版本号后缀
+        base_model = model_name.split(':')[0]
+
+        # 默认能力（Flash 模型）
+        default_capabilities = {
+            'supports_aspect_ratio': True,
+            'supports_resolution': False
+        }
+
+        return self.model_capabilities.get(base_model, default_capabilities)
+
+    def _build_generation_config(self, temperature: float,
+                                  aspect_ratio: str = None,
+                                  resolution: str = None) -> types.GenerateContentConfig:
+        """
+        构建生成配置
+
+        Args:
+            temperature: 温度参数
+            aspect_ratio: 宽高比（可选）
+            resolution: 分辨率（可选）
+
+        Returns:
+            GenerateContentConfig 对象
+        """
+        # 基础配置
+        config_params = {'temperature': temperature}
+
+        # 构建 image_config（仅在有参数时）
+        if aspect_ratio or resolution:
+            image_config_params = {}
+
+            if aspect_ratio:
+                image_config_params['aspect_ratio'] = aspect_ratio
+                log_provider_message('google', f"设置宽高比: {aspect_ratio}")
+
+            if resolution:
+                # 注意：API 参数名是 image_size，不是 resolution
+                image_config_params['image_size'] = resolution
+                log_provider_message('google', f"设置分辨率: {resolution}")
+
+            config_params['image_config'] = types.ImageConfig(**image_config_params)
+
+        return types.GenerateContentConfig(**config_params)

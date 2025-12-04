@@ -210,7 +210,8 @@ def process_image_edit(
     temperature: float,
     image_count: int,
     instruction: str,
-    uploaded_files: List[FileStorage]
+    uploaded_files: List[FileStorage],
+    **extra_params
 ) -> List[Dict[str, str]]:
     """
     处理图像编辑请求
@@ -223,6 +224,7 @@ def process_image_edit(
         image_count: 生成图片数量 (1-4)
         instruction: 编辑指令
         uploaded_files: 上传的图片文件列表
+        **extra_params: 额外参数（如 aspect_ratio, resolution）
 
     Returns:
         List[Dict]: 包含 filename, download_url, image_data 的字典列表
@@ -257,7 +259,8 @@ def process_image_edit(
         images=image_bytes_list,
         temperature=temperature,
         model=model,
-        image_count=image_count
+        image_count=image_count,
+        **extra_params
     )
     api_call_duration = (datetime.now() - api_call_start).total_seconds()
 
@@ -280,7 +283,8 @@ def process_image_generation(
     model: str,
     temperature: float,
     image_count: int,
-    description: str
+    description: str,
+    **extra_params
 ) -> List[Dict[str, str]]:
     """
     处理图像生成请求
@@ -323,7 +327,8 @@ def process_image_generation(
         images=[],  # 生成模式不需要输入图片
         temperature=temperature,
         model=model,
-        image_count=image_count
+        image_count=image_count,
+        **extra_params
     )
     api_call_duration = (datetime.now() - api_call_start).total_seconds()
 

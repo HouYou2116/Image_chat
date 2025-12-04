@@ -103,7 +103,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // 3. 初始化温度滑块监听器
+    // 3. 新增：注册模型选择器事件监听（编辑模式）
+    const editModelSelector = document.getElementById('modelSelector');
+    if (editModelSelector) {
+        editModelSelector.addEventListener('change', function() {
+            updateResolutionAvailability('edit', this.value);
+        });
+    }
+
+    // 4. 新增：注册模型选择器事件监听（生成模式）
+    const genModelSelector = document.getElementById('generateModelSelector');
+    if (genModelSelector) {
+        genModelSelector.addEventListener('change', function() {
+            updateResolutionAvailability('generate', this.value);
+        });
+    }
+
+    // 5. 初始化温度滑块监听器
     initTemperatureSliders();
 });
 
@@ -118,6 +134,11 @@ async function loadConfiguration() {
             appConfig = result.config;
             currentProvider = appConfig.defaultProvider;
             console.log('配置加载成功:', appConfig);
+
+            // 新增：初始化 Google 图像参数选项
+            if (appConfig.providers.google && appConfig.providers.google.imageOptions) {
+                initGoogleImageOptions();
+            }
         } else {
             throw new Error(result.error || '配置加载失败');
         }
@@ -170,6 +191,67 @@ async function loadConfiguration() {
     }
 }
 
+// 新增：初始化 Google 图像参数选项
+function initGoogleImageOptions() {
+    const googleConfig = appConfig.providers.google;
+    if (!googleConfig || !googleConfig.imageOptions) return;
+
+    const options = googleConfig.imageOptions;
+
+    // 填充宽高比选项（编辑模式）
+    populateSelectOptions(
+        document.getElementById('editAspectRatioSelector'),
+        options.aspect_ratios,
+        true  // includeDefault
+    );
+
+    // 填充宽高比选项（生成模式）
+    populateSelectOptions(
+        document.getElementById('generateAspectRatioSelector'),
+        options.aspect_ratios,
+        true
+    );
+
+    // 填充分辨率选项（编辑模式）
+    populateSelectOptions(
+        document.getElementById('editResolutionSelector'),
+        options.resolutions,
+        true
+    );
+
+    // 填充分辨率选项（生成模式）
+    populateSelectOptions(
+        document.getElementById('generateResolutionSelector'),
+        options.resolutions,
+        true
+    );
+
+    console.log('Google 图像参数选项已初始化');
+}
+
+// 新增：通用选择器选项填充函数
+function populateSelectOptions(selectElement, options, includeDefault = false) {
+    if (!selectElement) return;
+
+    selectElement.innerHTML = '';
+
+    if (includeDefault) {
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '默认';
+        selectElement.appendChild(defaultOption);
+    }
+
+    if (!options || !Array.isArray(options)) return;
+
+    options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option.value;
+        optionElement.textContent = option.text;
+        selectElement.appendChild(optionElement);
+    });
+}
+
 // 辅助函数：显示配置加载提示
 function showConfigLoading(message) {
     const loadingDiv = document.createElement('div');
@@ -209,6 +291,23 @@ function updateUIForProvider() {
     // 更新模型选项
     updateModelSelectors();
 
+    // 新增：显示/隐藏 Google 专用控件
+    toggleGoogleImageControls(provider === 'google');
+
+    // === 修复开始：切换 Provider 后立即刷新分辨率控件状态 ===
+    if (provider === 'google') {
+        const editModelSelector = document.getElementById('modelSelector');
+        const genModelSelector = document.getElementById('generateModelSelector');
+
+        if (editModelSelector) {
+            updateResolutionAvailability('edit', editModelSelector.value);
+        }
+        if (genModelSelector) {
+            updateResolutionAvailability('generate', genModelSelector.value);
+        }
+    }
+    // === 修复结束 ===
+
     // 加载对应的 API Key
     loadApiKeyForProvider();
 }
@@ -247,6 +346,59 @@ function updateModelSelectors() {
         // 设置默认值
         generateModelSelector.value = providerConfig.defaultModel;
     }
+}
+
+// 新增：显示或隐藏 Google 图像参数控件
+function toggleGoogleImageControls(show) {
+    const displayStyle = show ? 'block' : 'none';
+
+    const editGroups = [
+        'editAspectRatioGroup',
+        'editResolutionGroup'
+    ];
+
+    const genGroups = [
+        'generateAspectRatioGroup',
+        'generateResolutionGroup'
+    ];
+
+    [...editGroups, ...genGroups].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.style.display = displayStyle;
+    });
+
+    console.log(`Google 图像控件${show ? '显示' : '隐藏'}`);
+}
+
+// 新增：根据选择的模型更新分辨率选择器的可用状态
+function updateResolutionAvailability(mode, selectedModel) {
+    if (currentProvider !== 'google') return;
+
+    const googleConfig = appConfig.providers.google;
+    if (!googleConfig || !googleConfig.imageOptions) return;
+
+    const modelSupport = googleConfig.imageOptions.model_support || {};
+    const modelConfig = modelSupport[selectedModel] || {};
+    const supportsResolution = modelConfig.resolution || false;
+
+    const resolutionSelector = document.getElementById(
+        mode === 'edit' ? 'editResolutionSelector' : 'generateResolutionSelector'
+    );
+
+    const resolutionHint = document.getElementById(
+        mode === 'edit' ? 'editResolutionHint' : 'generateResolutionHint'
+    );
+
+    if (resolutionSelector) {
+        resolutionSelector.disabled = !supportsResolution;
+        if (!supportsResolution) resolutionSelector.value = '';
+    }
+
+    if (resolutionHint) {
+        resolutionHint.style.display = supportsResolution ? 'none' : 'inline';
+    }
+
+    console.log(`${mode} 分辨率控件: ${supportsResolution ? '启用' : '禁用'}`);
 }
 
 // 加载对应服务商的API Key
@@ -359,7 +511,23 @@ async function editImage() {
     formData.append('provider', currentProvider);
     formData.append('model', document.getElementById('modelSelector').value);
     formData.append('temperature', document.getElementById('temperatureSlider').value);
-    
+
+    // 新增：Google 专用参数
+    if (currentProvider === 'google') {
+        const aspectRatio = document.getElementById('editAspectRatioSelector').value;
+        const resolution = document.getElementById('editResolutionSelector').value;
+
+        if (aspectRatio) {
+            formData.append('aspect_ratio', aspectRatio);
+            console.log('设置宽高比:', aspectRatio);
+        }
+
+        if (resolution && !document.getElementById('editResolutionSelector').disabled) {
+            formData.append('resolution', resolution);
+            console.log('设置分辨率:', resolution);
+        }
+    }
+
     try {
         // 发送请求到后端
         const response = await fetch('/api/edit-image', {
@@ -463,7 +631,23 @@ async function generateImage() {
     formData.append('provider', currentProvider);
     formData.append('model', document.getElementById('generateModelSelector').value);
     formData.append('temperature', document.getElementById('generateTemperatureSlider').value);
-    
+
+    // 新增：Google 专用参数
+    if (currentProvider === 'google') {
+        const aspectRatio = document.getElementById('generateAspectRatioSelector').value;
+        const resolution = document.getElementById('generateResolutionSelector').value;
+
+        if (aspectRatio) {
+            formData.append('aspect_ratio', aspectRatio);
+            console.log('设置宽高比:', aspectRatio);
+        }
+
+        if (resolution && !document.getElementById('generateResolutionSelector').disabled) {
+            formData.append('resolution', resolution);
+            console.log('设置分辨率:', resolution);
+        }
+    }
+
     try {
         // 发送请求到后端
         const response = await fetch('/api/generate-image', {

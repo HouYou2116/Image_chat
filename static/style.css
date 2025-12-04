@@ -537,3 +537,32 @@ input[type="password"]:focus {
         font-size: 24px;
     }
 }
+
+/* ============================================================================
+   Google 专用控件样式
+   ============================================================================ */
+
+.google-only {
+    transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+.google-only.hidden {
+    display: none !important;
+}
+
+/* 帮助文本样式 */
+.help-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85em;
+    font-style: italic;
+    color: #888;
+}
+
+/* 禁用状态的选择框 */
+select:disabled {
+    background-color: #f0f0f0;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}

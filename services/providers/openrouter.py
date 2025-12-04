@@ -25,8 +25,8 @@ class OpenRouterProvider(ImageProvider):
             }
         )
 
-    def generate(self, prompt: str, images: list, temperature: float, model: str, image_count: int) -> list[bytes]:
-        """使用OpenRouter生成图像"""
+    def generate(self, prompt: str, images: list, temperature: float, model: str, image_count: int, **kwargs) -> list[bytes]:
+        """使用OpenRouter生成图像（忽略 kwargs 中的额外参数）"""
         generated_images = []
 
         log_provider_message('openrouter', f"开始图像生成任务: prompt长度={len(prompt)}, 输入图片数量={len(images)}, 生成数量={image_count}, temperature={temperature}")

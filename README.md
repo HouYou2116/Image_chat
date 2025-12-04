@@ -1,7 +1,5 @@
 # Image Chat
 
-> 🤖 AI 驱动的图像编辑和生成工具 - 用自然语言控制图像
-
 基于 Flask 的 Web 应用，支持通过自然语言指令编辑图片或生成新图片。集成 Google Gemini、OpenRouter 和兔子 API 三大服务商，提供灵活的模型选择。
 
 ## ✨ 功能特性
@@ -12,7 +10,7 @@
 
 ### 🌐 多服务商支持
 - **Google Gemini**：官方 API，高质量图像处理
-- **OpenRouter**：多模型接入，包含免费选项
+- **OpenRouter**：多模型接入(Gemini&GPT&FLUX)
 - **兔子 API**：国内服务商，访问稳定
 
 ### ⚙️ 灵活配置
@@ -77,7 +75,7 @@
 #### 获取 API Key
 - **Google Gemini**：访问 [Google AI Studio](https://makersuite.google.com/app/apikey) 申请（需要 Google 账号）
 - **OpenRouter**：访问 [OpenRouter](https://openrouter.ai/) 注册并获取密钥
-- **兔子 API**：访问兔子平台注册获取
+- **兔子 API**：访问[Tuzi](https://api.tu-zi.com/)平台注册获取
 
 #### 在界面中配置
 1. 在页面顶部选择服务商（Google / OpenRouter / 兔子）
@@ -100,7 +98,7 @@
 
 3. （可选）调整参数：
    - 选择模型
-   - 调整温度值（0-1，越高越有创意）
+   - 调整温度值（0-1）
    - 设置生成数量（1-4 张）
 
 4. 点击"开始编辑"按钮
@@ -142,14 +140,14 @@
    ```bash
    # 默认服务商（google / openrouter / tuzi）
    DEFAULT_PROVIDER=google
-
+   
    # 默认温度值
    DEFAULT_TEMPERATURE_EDIT=0.7
    DEFAULT_TEMPERATURE_GENERATE=0.8
-
+   
    # 兔子 API 地址（可选，用于自定义）
    TUZI_BASE_URL=https://api.tu-zi.com/v1
-
+   
    # OpenRouter Headers（可选，用于生产环境）
    OPENROUTER_REFERER=http://localhost:5000
    OPENROUTER_TITLE=Image CHAT
@@ -163,12 +161,12 @@
 ## 🎯 支持的模型
 
 ### Google Gemini
-- `gemini-2.5-flash-image` - Gemini 2.5 Flash（图像）
-- `gemini-3-pro-image-preview` - Gemini 3 Pro（图像预览版）
+- `gemini-2.5-flash-image` - Gemini 2.5 Flash Image
+- `gemini-3-pro-image-preview` - Gemini 3 Pro Image Preview
 
 ### OpenRouter
-- `google/gemini-2.5-flash-image` - Gemini 2.5 Flash (Stable)
-- `google/gemini-3-pro-image-preview` - Gemini 3 Pro
+- `google/gemini-2.5-flash-image` - Gemini 2.5 Flash 
+- `google/gemini-3-pro-image-preview` - Gemini 3 Pro Image
 - `openai/gpt-5-image-mini` - GPT-5 Image Mini
 - `openai/gpt-5-image` - GPT-5 Image
 - `black-forest-labs/flux.2-flex` - Flux 2 Flex
@@ -231,12 +229,6 @@ Image_chat/
 - 支持的格式：JPG、PNG、WEBP
 - 检查浏览器控制台是否有错误提示
 
-### 生成速度慢？
-
-- AI 图像生成需要一定时间（通常 10-30 秒）
-- OpenRouter 免费版可能有速率限制
-- 建议减少生成数量以提高响应速度
-
 ### 如何查看日志？
 
 应用日志保存在 `logs/app.log` 文件中。
@@ -256,7 +248,7 @@ Image_chat/
 主要依赖库：
 
 - **Flask** (3.1.2) - Web 框架
-- **google-genai** (1.32.0) - Google Gemini API 客户端
+- **google-genai** (1.53.0) - Google Gemini API 客户端
 - **openai** (>=1.0.0) - OpenAI 兼容接口（用于兔子 API）
 - **requests** (2.32.3) - HTTP 请求库
 - **Pillow** (11.3.0) - 图像处理库
