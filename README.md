@@ -30,6 +30,45 @@
 
 ### 安装步骤
 
+#### 方式一：使用 uv（推荐）
+
+1. **安装 uv**
+
+   - **Windows**:
+     ```powershell
+     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+     ```
+
+   - **macOS/Linux**:
+     ```bash
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     ```
+
+2. **克隆项目**
+   ```bash
+   git clone <repository-url>
+   cd Image_chat
+   ```
+
+3. **安装依赖**
+   ```bash
+   uv sync
+   ```
+
+4. **启动应用**
+   ```bash
+   uv run python app.py
+   ```
+
+5. **打开浏览器访问**
+   ```
+   http://127.0.0.1:5000
+   ```
+
+#### 方式二：使用传统 pip/venv
+
+如果不想使用 uv，也可以使用传统的 pip 和 venv：
+
 1. 克隆项目（或下载代码）
    ```bash
    git clone <repository-url>
@@ -266,6 +305,33 @@ python -m flake8 . --max-line-length=120 --exclude=venv,__pycache__
 
 # 测试导入
 python -c "from app import create_app; print('All imports successful')"
+```
+
+### uv 包管理常用命令
+
+如果使用 uv 进行包管理，以下是常用命令：
+
+```bash
+# 安装/同步依赖
+uv sync
+
+# 运行应用
+uv run python app.py
+
+# 添加新依赖包
+uv add <package-name>
+
+# 移除依赖包
+uv remove <package-name>
+
+# 更新依赖到最新版本
+uv lock --upgrade
+
+# 导出 requirements.txt
+uv export --format requirements-txt --no-hashes > requirements.txt
+
+# 查看依赖树
+uv tree
 ```
 
 ### 查看日志
