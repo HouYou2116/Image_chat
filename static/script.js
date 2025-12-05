@@ -3,8 +3,8 @@
 // 1. 偏好设置 (存入 LocalStorage，长期保留)
 const PERSISTENT_SETTINGS_IDS = [
     'providerSelector',
-    'modelSelector',            // 编辑模式模型
-    'generateModelSelector',    // 生成模式模型
+    // modelSelector 和 generateModelSelector 已移除
+    // 模型选择由 providerModelPreferences 独立管理
     'editAspectRatioSelector',
     'generateAspectRatioSelector',
     'editResolutionSelector',
