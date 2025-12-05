@@ -69,6 +69,25 @@ def setup_logger(name: str, level: int = logging.INFO, http_format: bool = False
                 file_handler.setLevel(level)
                 file_handler.setFormatter(formatter)
                 file_handler.suffix = "%Y-%m-%d"  # 轮转文件的后缀格式
+
+                # 自定义日志轮转文件命名函数
+                def custom_namer(default_name):
+                    """
+                    自定义日志轮转文件命名函数
+                    将 logs/app.log.2025-12-04 转换为 logs/2025-12-04.app.log
+                    """
+                    dir_name, base_name = os.path.split(default_name)
+                    if '.' in base_name:
+                        parts = base_name.split('.')
+                        if len(parts) >= 3:  # 至少包含：app, log, YYYY-MM-DD
+                            date_suffix = parts[-1]  # 最后一部分是日期
+                            file_parts = parts[:-1]  # 前面的部分是文件名
+                            base_file = '.'.join(file_parts)  # 重新组合为 app.log
+                            new_name = f"{date_suffix}.{base_file}"
+                            return os.path.join(dir_name, new_name)
+                    return default_name
+
+                file_handler.namer = custom_namer
                 logger.addHandler(file_handler)
 
             except Exception as e:

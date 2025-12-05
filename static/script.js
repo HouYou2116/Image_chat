@@ -1,3 +1,140 @@
+// === 状态持久化配置 ===
+
+// 1. 偏好设置 (存入 LocalStorage，长期保留)
+const PERSISTENT_SETTINGS_IDS = [
+    'providerSelector',
+    'modelSelector',            // 编辑模式模型
+    'generateModelSelector',    // 生成模式模型
+    'editAspectRatioSelector',
+    'generateAspectRatioSelector',
+    'editResolutionSelector',
+    'generateResolutionSelector',
+    'editCountInput',
+    'imageCountInput',
+    'temperatureSlider',        // 编辑模式温度
+    'generateTemperatureSlider' // 生成模式温度
+];
+
+// 2. 任务内容 (存入 SessionStorage，关闭标签页即清除)
+const PERSISTENT_TEXT_IDS = [
+    'instructionInput',
+    'descriptionInput'
+];
+
+// 保存当前状态
+function saveAppState() {
+    // 保存偏好设置
+    const settings = {};
+    PERSISTENT_SETTINGS_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) settings[id] = el.value;
+    });
+    localStorage.setItem('image_chat_settings', JSON.stringify(settings));
+
+    // 保存文本内容
+    const texts = {};
+    PERSISTENT_TEXT_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) texts[id] = el.value;
+    });
+    sessionStorage.setItem('image_chat_texts', JSON.stringify(texts));
+}
+
+// 恢复保存的状态
+function restoreAppState() {
+    console.log('[State] 开始恢复用户状态...');
+
+    let settings = null;
+    try {
+        settings = JSON.parse(localStorage.getItem('image_chat_settings'));
+    } catch (e) {
+        console.error('读取设置失败:', e);
+    }
+
+    if (settings) {
+        // 1. 优先恢复 Provider
+        if (settings['providerSelector']) {
+            const providerEl = document.getElementById('providerSelector');
+            if (providerEl) {
+                providerEl.value = settings['providerSelector'];
+                currentProvider = settings['providerSelector'];
+                // 这会调用 updateModelSelectors，进而应用我们在步骤2写的"模型记忆"逻辑
+                updateUIForProvider();
+            }
+        }
+
+        // 2. 恢复其他控件
+        PERSISTENT_SETTINGS_IDS.forEach(id => {
+            if (id === 'providerSelector') return; // 跳过，已处理
+
+            const el = document.getElementById(id);
+            if (el && settings[id] !== undefined) {
+                el.value = settings[id];
+
+                // [修复问题1]：如果是滑块，手动更新对应的数字显示
+                if (id === 'temperatureSlider') {
+                    const valSpan = document.getElementById('temperatureValue');
+                    if (valSpan) valSpan.textContent = settings[id];
+                }
+                if (id === 'generateTemperatureSlider') {
+                    const valSpan = document.getElementById('generateTemperatureValue');
+                    if (valSpan) valSpan.textContent = settings[id];
+                }
+            }
+        });
+
+        // [修复问题2]：强制运行一次分辨率可用性检查
+        // 必须在模型值被恢复之后执行
+        if (currentProvider === 'google') {
+            const editModel = document.getElementById('modelSelector');
+            if (editModel) updateResolutionAvailability('edit', editModel.value);
+
+            const genModel = document.getElementById('generateModelSelector');
+            if (genModel) updateResolutionAvailability('generate', genModel.value);
+        }
+    }
+
+    // 3. 恢复文本内容 (逻辑不变)
+    try {
+        const texts = JSON.parse(sessionStorage.getItem('image_chat_texts'));
+        if (texts) {
+            PERSISTENT_TEXT_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && texts[id] !== undefined) {
+                    el.value = texts[id];
+                }
+            });
+        }
+    } catch (e) {
+        console.error('恢复文本失败:', e);
+    }
+
+    console.log('[State] 用户状态恢复完成');
+}
+
+// 初始化自动保存监听
+function initAutoSave() {
+    const allIds = [...PERSISTENT_SETTINGS_IDS, ...PERSISTENT_TEXT_IDS];
+    allIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            // 对输入框使用 input 事件 (实时保存)，对下拉框使用 change 事件
+            const eventType = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') ? 'input' : 'change';
+            el.addEventListener(eventType, saveAppState);
+        }
+    });
+    console.log('[State] 自动保存监听已启动');
+}
+
+// [新增] 用于存储每个服务商上次选择的模型
+let providerModelPreferences = JSON.parse(localStorage.getItem('provider_model_preferences') || '{}');
+
+// [辅助函数] 保存服务商模型偏好
+function saveProviderModelPreference(provider, model) {
+    providerModelPreferences[provider] = model;
+    localStorage.setItem('provider_model_preferences', JSON.stringify(providerModelPreferences));
+}
+
 let selectedFile = null;
 let downloadUrl = null;
 let downloadUrls = [];
@@ -63,7 +200,13 @@ async function initApp() {
     // === 步骤 E：刷新模型列表 ===
     updateUIForProvider();
 
-    console.log('[Init] 应用初始化完成');
+    // === 新增：覆盖默认值，恢复用户上次的状态 ===
+    restoreAppState();
+
+    // === 新增：启动状态监听 ===
+    initAutoSave();
+
+    console.log('[Init] 应用初始化完成 (已集成状态恢复)');
 }
 
 // 初始化温度滑块监听器
@@ -108,6 +251,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (editModelSelector) {
         editModelSelector.addEventListener('change', function() {
             updateResolutionAvailability('edit', this.value);
+            // [新增] 保存该服务商的模型偏好
+            saveProviderModelPreference(currentProvider, this.value);
         });
     }
 
@@ -116,6 +261,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (genModelSelector) {
         genModelSelector.addEventListener('change', function() {
             updateResolutionAvailability('generate', this.value);
+            // [新增] 保存偏好（加后缀区分编辑/生成模式）
+            saveProviderModelPreference(currentProvider + '_generate', this.value);
         });
     }
 
@@ -329,8 +476,13 @@ function updateModelSelectors() {
             option.textContent = model.text;
             modelSelector.appendChild(option);
         });
-        // 设置默认值
-        modelSelector.value = providerConfig.defaultModel;
+
+        // [核心修复] 优先使用用户在该服务商的历史选择，否则使用默认值
+        const savedModel = providerModelPreferences[currentProvider];
+        // 检查保存的模型是否依然在当前列表中（防止配置变更导致错误）
+        const isValidSaved = savedModel && models.some(m => m.value === savedModel);
+
+        modelSelector.value = isValidSaved ? savedModel : providerConfig.defaultModel;
     }
 
     // 更新生成模式模型选择器
@@ -343,8 +495,12 @@ function updateModelSelectors() {
             option.textContent = model.text;
             generateModelSelector.appendChild(option);
         });
-        // 设置默认值
-        generateModelSelector.value = providerConfig.defaultModel;
+
+        // 同上逻辑（使用带后缀的 key 区分编辑和生成模式）
+        const savedGenModel = providerModelPreferences[currentProvider + '_generate'];
+        const isValidSavedGen = savedGenModel && models.some(m => m.value === savedGenModel);
+
+        generateModelSelector.value = isValidSavedGen ? savedGenModel : providerConfig.defaultModel;
     }
 }
 
@@ -425,7 +581,18 @@ document.getElementById('imageInput').addEventListener('change', function(e) {
     
     if (files.length > 0) {
         selectedFile = files;
-        
+
+        // 重置编辑结果区域（清除上一次的编辑结果）
+        const editedImagesDiv = document.getElementById('editedImages');
+        editedImagesDiv.innerHTML = '<p>编辑完成后显示</p>';
+
+        // 隐藏批量下载按钮
+        const downloadEditBtn = document.getElementById('downloadEditBtn');
+        downloadEditBtn.style.display = 'none';
+
+        // 清空下载 URL 数组
+        editDownloadUrls = [];
+
         // 清空预览
         previewsDiv.innerHTML = '';
         
