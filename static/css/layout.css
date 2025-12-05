@@ -1,0 +1,91 @@
+.container {
+    max-width: 900px; /* Made slightly narrower for reading comfort */
+    margin: 0 auto;
+    background: transparent; /* Removed white card background for cleaner look */
+    /* Or use var(--surface-color) if you prefer a card */
+}
+
+/* API Key Section - Uses the Sage Green theme */
+.api-key-section {
+    background: var(--accent-green-bg);
+    border: 1px solid rgba(79, 111, 82, 0.2);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 32px;
+}
+
+/* Mode Section - Navigation */
+.mode-section {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 0 20px 0;
+    margin-bottom: 32px;
+}
+
+/* Upload & Controls Section */
+.upload-section {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+/* Results Section */
+.images-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.images-section.full-width {
+    grid-template-columns: 1fr;
+}
+
+.image-container {
+    padding: 0;
+    border: none;
+    text-align: left;
+}
+
+.image-container h3 {
+    font-family: 'Newsreader', serif;
+    font-size: 1.5rem;
+    margin-bottom: 16px;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+/* Additional Styles for Complete Coverage */
+.image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.image-container:first-child {
+    border-right: none;
+}
+
+.image-container.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .images-section {
+        grid-template-columns: 1fr;
+    }
+
+    .image-container:first-child {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .upload-section {
+        padding: 20px;
+    }
+}

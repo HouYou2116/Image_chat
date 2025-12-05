@@ -1,0 +1,30 @@
+/* Anthropic-inspired Design System
+   Colors:
+   - Bg: #F4F1EA (Warm Beige)
+   - Surface: #FFFFFF (White) or #F9F8F4
+   - Text: #191919 (Near Black)
+   - Accent Orange (Terracotta): #CC785C
+   - Accent Green (Sage): #4F6F52
+   - Accent Purple (Muted): #8A7E9E
+   - Border: #E0DED6
+*/
+
+:root {
+    --bg-color: #F4F1EA;
+    --surface-color: #FFFFFF;
+    --text-main: #191919;
+    --text-secondary: #555555;
+    --border-color: #D6D3CC;
+
+    --primary-btn: #191919;
+    --primary-btn-hover: #333333;
+
+    --accent-orange: #CC785C;
+    --accent-green: #4F6F52;
+    --accent-green-bg: #E8F0E9;
+    --accent-purple: #8A7E9E;
+    --accent-purple-bg: #F0EDF5;
+
+    --radius-sm: 6px;
+    --radius-md: 12px;
+}

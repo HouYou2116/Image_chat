@@ -1,0 +1,58 @@
+<div class="upload-section" id="editMode">
+    <div class="input-group">
+        <label for="imageInput">选择图片（可多选）：</label>
+        <input type="file" id="imageInput" accept="image/*" multiple required>
+        <div class="image-previews" id="editPreviews">
+            <p>请选择1张或多张图片进行编辑</p>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="instructionInput">编辑指令：</label>
+        <textarea id="instructionInput" placeholder="例如：把天空变成夜晚，添加星星" required></textarea>
+    </div>
+
+    <div class="input-group">
+        <label for="modelSelector">选择模型：</label>
+        <select id="modelSelector">
+            <!-- 模型选项将通过JavaScript动态填充 -->
+        </select>
+    </div>
+
+    <!-- Google 图像参数控件 - 编辑模式 -->
+    <div class="input-group google-only" id="editAspectRatioGroup" style="display: none;">
+        <label for="editAspectRatioSelector">宽高比（Aspect Ratio）：</label>
+        <select id="editAspectRatioSelector">
+            <option value="">默认</option>
+            <!-- 动态填充 -->
+        </select>
+    </div>
+
+    <div class="input-group google-only" id="editResolutionGroup" style="display: none;">
+        <label for="editResolutionSelector">分辨率（Resolution）：</label>
+        <select id="editResolutionSelector">
+            <option value="">默认</option>
+            <!-- 动态填充 -->
+        </select>
+        <span class="help-text" id="editResolutionHint" style="display: none; color: #888;">
+            注意: Flash 模型不支持分辨率参数
+        </span>
+    </div>
+
+    <div class="input-group">
+        <label for="temperatureSlider">模型温度 (Temperature)：<span id="temperatureValue">0.7</span></label>
+        <input type="range" id="temperatureSlider" min="0.0" max="1.0" step="0.1" value="0.7">
+    </div>
+
+    <div class="input-group">
+        <label for="editCountInput">生成数量：</label>
+        <select id="editCountInput">
+            <option value="1">1张图片</option>
+            <option value="2">2张图片</option>
+            <option value="3">3张图片</option>
+            <option value="4">4张图片</option>
+        </select>
+    </div>
+
+    <button id="editBtn" class="js-edit-btn">开始编辑</button>
+</div>

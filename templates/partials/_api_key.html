@@ -1,0 +1,17 @@
+<div class="api-key-section">
+    <div class="input-group">
+        <label for="providerSelector">选择服务商：</label>
+        <select id="providerSelector">
+            <option value="google">Google</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="tuzi">兔子</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label for="apiKeyInput" id="apiKeyLabel">Google API Key：</label>
+        <input type="password" id="apiKeyInput" placeholder="输入您的 Google Gemini API Key" required>
+        <button class="js-save-api-key">保存</button>
+        <button class="js-delete-api-key">清除</button>
+        <span id="apiKeyStatus" class="status-text"></span>
+    </div>
+</div>
