@@ -44,7 +44,7 @@
         <input type="range" id="temperatureSlider" min="0.0" max="1.0" step="0.1" value="0.7">
     </div>
 
-    <div class="input-group">
+    <div class="input-group" id="editCountGroup">
         <label for="editCountInput">生成数量：</label>
         <select id="editCountInput">
             <option value="1">1张图片</option>
@@ -52,6 +52,18 @@
             <option value="3">3张图片</option>
             <option value="4">4张图片</option>
         </select>
+    </div>
+
+    <!-- AUTO 模式统计面板 -->
+    <div class="input-group auto-stats-panel" id="autoPanelEdit" style="display: none;">
+        <div class="auto-stats-content">
+            <div class="stats-text">
+                执行: <span class="stat-total">0</span> |
+                成功: <span class="stat-success">0</span> |
+                失败: <span class="stat-fail">0</span>
+            </div>
+            <button type="button" class="stop-auto-btn" id="stopAutoBtn">停止 AUTO</button>
+        </div>
     </div>
 
     <button id="editBtn" class="js-edit-btn">开始编辑</button>

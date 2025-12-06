@@ -39,6 +39,19 @@ let apiKey = null;
 let currentProvider = 'google';
 let appConfig = null;
 
+// AUTO 模式状态
+let autoState = {
+    enabled: false,      // 是否开启 AUTO 模式
+    running: false,      // 循环是否正在进行
+    mode: null,          // 记录开启时的模式 'edit' 或 'generate'
+    stats: {
+        total: 0,        // 总执行次数
+        success: 0,      // 成功次数
+        fail: 0          // 失败次数
+    },
+    sessionImages: []    // 本轮循环生成的所有图片下载链接（用于批量下载）
+};
+
 // === Getter/Setter 函数 ===
 
 export function getApiKey() { return apiKey; }
@@ -66,6 +79,59 @@ export function getDownloadUrl() { return downloadUrl; }
 export function setDownloadUrl(url) { downloadUrl = url; }
 
 export function getProviderModelPreferences() { return providerModelPreferences; }
+
+// === AUTO 模式状态访问 ===
+
+export function getAutoState() { return autoState; }
+export function isAutoEnabled() { return autoState.enabled; }
+export function isAutoRunning() { return autoState.running; }
+export function getAutoMode() { return autoState.mode; }
+export function getAutoStats() { return autoState.stats; }
+export function getSessionImages() { return autoState.sessionImages; }
+
+// === AUTO 模式状态修改 ===
+
+export function setAutoEnabled(enabled) { autoState.enabled = enabled; }
+export function setAutoRunning(running) { autoState.running = running; }
+export function setAutoMode(mode) { autoState.mode = mode; }
+
+// === AUTO 统计数据更新 ===
+
+export function incrementAutoTotal() { autoState.stats.total++; }
+export function incrementAutoSuccess() { autoState.stats.success++; }
+export function incrementAutoFail() { autoState.stats.fail++; }
+
+// === AUTO 图片队列管理 ===
+
+export function addSessionImage(imageUrl) { autoState.sessionImages.push(imageUrl); }
+export function clearSessionImages() { autoState.sessionImages = []; }
+
+// === AUTO 状态重置 ===
+
+/**
+ * 重置 AUTO 统计数据（每次启动前调用）
+ * 保留 enabled/running 状态，仅清零统计数据和图片队列
+ */
+export function resetAutoStats() {
+    autoState.stats.total = 0;
+    autoState.stats.success = 0;
+    autoState.stats.fail = 0;
+    autoState.sessionImages = [];
+}
+
+/**
+ * 完全重置 AUTO 状态（停止时调用）
+ * 重置所有状态到初始值
+ */
+export function resetAutoState() {
+    autoState.enabled = false;
+    autoState.running = false;
+    autoState.mode = null;
+    autoState.stats.total = 0;
+    autoState.stats.success = 0;
+    autoState.stats.fail = 0;
+    autoState.sessionImages = [];
+}
 
 // === 状态持久化函数 ===
 

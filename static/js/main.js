@@ -175,66 +175,28 @@ function handleSwitchMode(mode) {
 
 // 图片编辑
 async function handleEditImage() {
-    const selectedFile = State.getSelectedFile();
-    const apiKey = State.getApiKey();
-    const instruction = document.getElementById('instructionInput').value.trim();
-    const imageCount = document.getElementById('editCountInput').value;
-
-    // 验证输入
-    if (!selectedFile) {
-        UI.showError('请先选择图片');
-        return;
-    }
-    if (!instruction) {
-        UI.showError('请输入编辑指令');
-        return;
-    }
-    if (!apiKey) {
-        UI.showError('请先设置API Key');
+    // 检查是否为 AUTO 模式
+    if (State.isAutoEnabled()) {
+        // AUTO 模式：启动循环
+        await runAutoLoop('edit');
         return;
     }
 
-    // 准备表单数据
-    const formData = new FormData();
-    if (selectedFile instanceof FileList) {
-        for (let i = 0; i < selectedFile.length; i++) {
-            formData.append('image', selectedFile[i]);
-        }
-    } else {
-        formData.append('image', selectedFile);
-    }
-
-    formData.append('instruction', instruction);
-    formData.append('image_count', imageCount);
-    formData.append('api_key', apiKey);
-    formData.append('provider', State.getCurrentProvider());
-    formData.append('model', document.getElementById('modelSelector').value);
-    formData.append('temperature', document.getElementById('temperatureSlider').value);
-
-    // Google 专用参数
-    if (State.getCurrentProvider() === 'google') {
-        const aspectRatio = document.getElementById('editAspectRatioSelector').value;
-        const resolution = document.getElementById('editResolutionSelector').value;
-        if (aspectRatio) formData.append('aspect_ratio', aspectRatio);
-        if (resolution && !document.getElementById('editResolutionSelector').disabled) {
-            formData.append('resolution', resolution);
-        }
-    }
-
+    // === 普通模式：单次执行 ===
     try {
         UI.showLoading(true);
         UI.hideError();
 
-        const result = await API.editImage(formData);
+        const result = await runTaskOnce('edit');
 
         if (result.success) {
-            const downloadUrls = UI.renderEditResults(result.images);
+            const downloadUrls = UI.renderEditResults(result.images, false);  // isAutoMode = false
             State.setEditDownloadUrls(downloadUrls);
         } else {
             UI.showError(result.error || '编辑失败');
         }
     } catch (error) {
-        UI.showError('网络错误：' + error.message);
+        UI.showError(error.message || '网络错误');
     } finally {
         UI.showLoading(false);
     }
@@ -242,56 +204,192 @@ async function handleEditImage() {
 
 // 图片生成
 async function handleGenerateImage() {
-    const apiKey = State.getApiKey();
-    const description = document.getElementById('descriptionInput').value.trim();
-    const imageCount = document.getElementById('imageCountInput').value;
-
-    // 验证输入
-    if (!description) {
-        UI.showError('请输入图像描述');
-        return;
-    }
-    if (!apiKey) {
-        UI.showError('请先设置API Key');
+    // 检查是否为 AUTO 模式
+    if (State.isAutoEnabled()) {
+        // AUTO 模式：启动循环
+        await runAutoLoop('generate');
         return;
     }
 
-    // 准备表单数据
-    const formData = new FormData();
-    formData.append('description', description);
-    formData.append('image_count', imageCount);
-    formData.append('api_key', apiKey);
-    formData.append('provider', State.getCurrentProvider());
-    formData.append('model', document.getElementById('generateModelSelector').value);
-    formData.append('temperature', document.getElementById('generateTemperatureSlider').value);
-
-    // Google 专用参数
-    if (State.getCurrentProvider() === 'google') {
-        const aspectRatio = document.getElementById('generateAspectRatioSelector').value;
-        const resolution = document.getElementById('generateResolutionSelector').value;
-        if (aspectRatio) formData.append('aspect_ratio', aspectRatio);
-        if (resolution && !document.getElementById('generateResolutionSelector').disabled) {
-            formData.append('resolution', resolution);
-        }
-    }
-
+    // === 普通模式：单次执行 ===
     try {
         UI.showGenerateLoading(true);
         UI.hideError();
 
-        const result = await API.generateImage(formData);
+        const result = await runTaskOnce('generate');
 
         if (result.success) {
-            const downloadUrls = UI.renderGenerateResults(result.images);
+            const downloadUrls = UI.renderGenerateResults(result.images, false);  // isAutoMode = false
             State.setDownloadUrls(downloadUrls);
         } else {
             UI.showError(result.error || '生成失败');
         }
     } catch (error) {
-        UI.showError('网络错误：' + error.message);
+        UI.showError(error.message || '网络错误');
     } finally {
         UI.showGenerateLoading(false);
     }
+}
+
+// === AUTO 模式核心函数 ===
+
+/**
+ * 执行一次图片处理任务（编辑或生成）
+ * @param {string} mode - 'edit' 或 'generate'
+ * @param {Object} options - 可选参数 { forceImageCount: 1 }
+ * @returns {Promise<Object>} { success: boolean, images?: Array, error?: string }
+ */
+async function runTaskOnce(mode, options = {}) {
+    const apiKey = State.getApiKey();
+
+    if (mode === 'edit') {
+        // 编辑模式验证
+        const selectedFile = State.getSelectedFile();
+        const instruction = document.getElementById('instructionInput').value.trim();
+
+        if (!selectedFile) {
+            throw new Error('请先选择图片');
+        }
+        if (!instruction) {
+            throw new Error('请输入编辑指令');
+        }
+        if (!apiKey) {
+            throw new Error('请先设置API Key');
+        }
+
+        // 准备 FormData
+        const formData = new FormData();
+        if (selectedFile instanceof FileList) {
+            for (let i = 0; i < selectedFile.length; i++) {
+                formData.append('image', selectedFile[i]);
+            }
+        } else {
+            formData.append('image', selectedFile);
+        }
+
+        formData.append('instruction', instruction);
+        // AUTO 模式强制设为 1，否则使用表单值
+        const imageCount = options.forceImageCount || document.getElementById('editCountInput').value;
+        formData.append('image_count', imageCount);
+        formData.append('api_key', apiKey);
+        formData.append('provider', State.getCurrentProvider());
+        formData.append('model', document.getElementById('modelSelector').value);
+        formData.append('temperature', document.getElementById('temperatureSlider').value);
+
+        // Google 专用参数
+        if (State.getCurrentProvider() === 'google') {
+            const aspectRatio = document.getElementById('editAspectRatioSelector').value;
+            const resolution = document.getElementById('editResolutionSelector').value;
+            if (aspectRatio) formData.append('aspect_ratio', aspectRatio);
+            if (resolution && !document.getElementById('editResolutionSelector').disabled) {
+                formData.append('resolution', resolution);
+            }
+        }
+
+        // 调用 API
+        return await API.editImage(formData);
+
+    } else if (mode === 'generate') {
+        // 生成模式验证
+        const description = document.getElementById('descriptionInput').value.trim();
+
+        if (!description) {
+            throw new Error('请输入图像描述');
+        }
+        if (!apiKey) {
+            throw new Error('请先设置API Key');
+        }
+
+        // 准备 FormData
+        const formData = new FormData();
+        formData.append('description', description);
+        // AUTO 模式强制设为 1，否则使用表单值
+        const imageCount = options.forceImageCount || document.getElementById('imageCountInput').value;
+        formData.append('image_count', imageCount);
+        formData.append('api_key', apiKey);
+        formData.append('provider', State.getCurrentProvider());
+        formData.append('model', document.getElementById('generateModelSelector').value);
+        formData.append('temperature', document.getElementById('generateTemperatureSlider').value);
+
+        // Google 专用参数
+        if (State.getCurrentProvider() === 'google') {
+            const aspectRatio = document.getElementById('generateAspectRatioSelector').value;
+            const resolution = document.getElementById('generateResolutionSelector').value;
+            if (aspectRatio) formData.append('aspect_ratio', aspectRatio);
+            if (resolution && !document.getElementById('generateResolutionSelector').disabled) {
+                formData.append('resolution', resolution);
+            }
+        }
+
+        // 调用 API
+        return await API.generateImage(formData);
+    }
+
+    throw new Error('无效的模式: ' + mode);
+}
+
+/**
+ * AUTO 模式循环执行
+ * @param {string} mode - 'edit' 或 'generate'
+ */
+async function runAutoLoop(mode) {
+    console.log(`[AUTO] 开始循环 (${mode} 模式)`);
+
+    // 1. 初始化状态
+    State.setAutoRunning(true);
+    State.resetAutoStats();
+
+    // 2. 更新 UI：显示统计面板
+    UI.updateAutoStatsUI(State.getAutoStats());
+
+    // 3. 主循环
+    while (State.isAutoRunning()) {
+        try {
+            // 更新统计：total++
+            State.incrementAutoTotal();
+            UI.updateAutoStatsUI(State.getAutoStats());
+
+            console.log(`[AUTO] 第 ${State.getAutoStats().total} 次请求...`);
+
+            // 执行一次任务（强制 image_count = 1）
+            const result = await runTaskOnce(mode, { forceImageCount: 1 });
+
+            if (result.success) {
+                // 成功：success++，渲染结果（AUTO 模式）
+                State.incrementAutoSuccess();
+                UI.updateAutoStatsUI(State.getAutoStats());
+
+                if (mode === 'edit') {
+                    UI.renderEditResults(result.images, true);  // isAutoMode = true
+                } else {
+                    UI.renderGenerateResults(result.images, true);  // isAutoMode = true
+                }
+
+                // 记录下载链接到 sessionImages（可选，用于批量下载）
+                result.images.forEach(img => {
+                    State.addSessionImage(img.download_url);
+                });
+
+                console.log(`[AUTO] 第 ${State.getAutoStats().total} 次成功`);
+            } else {
+                // API 返回失败（但不抛异常）
+                State.incrementAutoFail();
+                UI.updateAutoStatsUI(State.getAutoStats());
+                console.warn(`[AUTO] 第 ${State.getAutoStats().total} 次失败: ${result.error}`);
+            }
+
+        } catch (error) {
+            // 捕获异常（验证错误、网络错误等），记录失败但不中断循环
+            State.incrementAutoFail();
+            UI.updateAutoStatsUI(State.getAutoStats());
+            console.error(`[AUTO] 第 ${State.getAutoStats().total} 次异常:`, error.message);
+        }
+
+        // 4. 延时防封（1 秒间隔）
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    console.log('[AUTO] 循环已停止');
 }
 
 // 批量下载
@@ -383,6 +481,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelector('.js-download-edit-btn')?.addEventListener('click', handleDownloadEditImages);
     document.querySelector('.js-download-all-btn')?.addEventListener('click', handleDownloadAllImages);
 
+    // AUTO 模式切换
+    document.getElementById('autoModeToggle')?.addEventListener('click', () => {
+        const currentMode = State.getCurrentMode();
+        const currentAutoState = State.isAutoEnabled();
+
+        if (currentAutoState) {
+            // 关闭 AUTO
+            State.setAutoEnabled(false);
+            State.setAutoRunning(false);  // 停止循环
+            State.setAutoMode(null);
+            UI.toggleAutoModeUI(false);
+            console.log('[AUTO] 已关闭');
+        } else {
+            // 开启 AUTO
+            State.setAutoEnabled(true);
+            State.setAutoMode(currentMode);
+            UI.toggleAutoModeUI(true, currentMode);
+            console.log(`[AUTO] 已开启 (${currentMode} 模式)`);
+        }
+    });
+
     // 模态框关闭
     document.querySelector('.js-modal-close')?.addEventListener('click', UI.closeImageModal);
 
@@ -390,6 +509,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // === 其他事件监听器 ===
+
+// 停止 AUTO 按钮事件委托（两个面板都有stopAutoBtn）
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('stop-auto-btn') || e.target.id === 'stopAutoBtn') {
+        console.log('[AUTO] 用户点击停止按钮');
+        State.setAutoRunning(false);
+    }
+});
 
 // 文件选择监听器
 document.getElementById('imageInput').addEventListener('change', function(e) {

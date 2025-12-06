@@ -310,6 +310,87 @@ select:disabled {
     opacity: 0.6;
 }
 
+/* ============================================================================
+   AUTO 模式样式
+   ============================================================================ */
+
+/* AUTO 模式按钮激活状态 */
+.tab-btn.auto-mode-active {
+    background: var(--accent-orange);
+    color: #FFFFFF;
+    border: 1px solid var(--accent-orange);
+    font-weight: 600;
+}
+
+.tab-btn.auto-mode-active:hover {
+    background: #B56A4F;  /* 深橙色 hover */
+    color: #FFFFFF;
+}
+
+/* AUTO 模式统计面板 */
+.auto-stats-panel {
+    margin-bottom: 24px;
+}
+
+.auto-stats-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #FFF8F3;  /* 浅橙色背景 */
+    border: 1px solid rgba(204, 120, 92, 0.3);
+    border-radius: var(--radius-sm);
+    gap: 16px;
+}
+
+.stats-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.stats-text .stat-total {
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.stats-text .stat-success {
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+.stats-text .stat-fail {
+    color: #D32F2F;
+    font-weight: 600;
+}
+
+/* 停止按钮样式 */
+.stop-auto-btn {
+    padding: 8px 20px;
+    background: var(--accent-orange);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 20px;  /* 药丸形 */
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.stop-auto-btn:hover {
+    background: #B56A4F;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(204, 120, 92, 0.3);
+}
+
+.stop-auto-btn:active {
+    transform: translateY(0);
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .error-message {

@@ -26,7 +26,7 @@
 ## 🚀 快速开始
 
 ### 环境要求
-- Python 3.7 或更高版本
+- Python 3.12 或更高版本
 
 ### 安装步骤
 
@@ -222,32 +222,63 @@
 
 ```
 Image_chat/
-├── app.py                          # 应用入口
-├── requirements.txt                # 依赖清单
+├── app.py                          # Flask 应用入口
+├── pyproject.toml                  # uv 包管理配置
+├── uv.lock                         # uv 依赖锁定文件
+├── requirements.txt                # pip 依赖清单（由 uv 导出）
+├── .python-version                 # Python 版本指定（3.12）
 ├── README.md                       # 项目文档
+├── CLAUDE.md                       # Claude Code 项目指导
 ├── .env.example                    # 环境变量示例
 │
 ├── routes/                         # 路由层
-│   ├── main.py                     # 主页和下载
-│   └── api.py                      # API 接口
+│   ├── __init__.py                 # 包初始化
+│   ├── main.py                     # 主页和下载路由
+│   └── api.py                      # API 接口路由
 │
-├── services/                       # 业务逻辑
-│   ├── config.py                   # 配置管理
-│   ├── image_service.py            # 图像处理
+├── services/                       # 业务逻辑层
+│   ├── __init__.py                 # 包初始化
+│   ├── config.py                   # 配置管理中心
+│   ├── image_service.py            # 图像处理业务逻辑
 │   ├── logging_config.py           # 日志配置
 │   └── providers/                  # AI 服务商实现
-│       ├── google.py               # Google Gemini
-│       ├── openrouter.py           # OpenRouter
-│       └── tuzi.py                 # 兔子 API
+│       ├── __init__.py             # 工厂函数 get_provider()
+│       ├── base.py                 # ImageProvider 抽象基类
+│       ├── google.py               # Google Gemini 实现
+│       ├── openrouter.py           # OpenRouter 实现
+│       └── tuzi.py                 # 兔子 API 实现
 │
 ├── templates/                      # HTML 模板
-│   └── index.html                  # 主界面
+│   ├── base.html                   # Jinja2 基础模板
+│   ├── index.html                  # 主页（继承 base.html）
+│   └── partials/                   # 模板片段
+│       ├── _api_key.html           # API Key 输入区域
+│       ├── _tabs.html              # 标签页切换
+│       ├── _edit_form.html         # 编辑表单
+│       ├── _generate_form.html     # 生成表单
+│       ├── _results.html           # 结果显示
+│       └── _modal.html             # 模态框
 │
-├── static/                         # 静态资源
-│   ├── style.css                   # 样式
-│   └── script.js                   # 前端逻辑
+├── static/                         # 前端静态资源
+│   ├── css/                        # 模块化样式表
+│   │   ├── variables.css           # CSS 变量定义
+│   │   ├── base.css                # 全局基础样式
+│   │   ├── layout.css              # 布局样式
+│   │   ├── components.css          # 组件样式
+│   │   └── modal.css               # 模态框样式
+│   └── js/                         # JavaScript 模块
+│       ├── main.js                 # 应用入口（ES6 Module）
+│       └── modules/                # 业务模块
+│           ├── api.js              # API 通信
+│           ├── config.js           # 配置管理
+│           ├── state.js            # 状态管理
+│           ├── ui.js               # UI 交互
+│           └── utils.js            # 工具函数
 │
 ├── logs/                           # 日志目录（自动创建）
+│   ├── app.log                     # 当前日志
+│   └── app.log.YYYY-MM-DD          # 按日期归档
+│
 └── output/                         # 生成图片存储（自动创建）
 ```
 
@@ -287,10 +318,11 @@ Image_chat/
 主要依赖库：
 
 - **Flask** (3.1.2) - Web 框架
-- **google-genai** (1.53.0) - Google Gemini API 客户端
-- **openai** (>=1.0.0) - OpenAI 兼容接口（用于兔子 API）
+- **google-genai** (>=1.53.0) - Google Gemini API 客户端
+- **openai** (>=1.108.0) - OpenAI 兼容接口（用于 OpenRouter 和兔子 API）
 - **requests** (2.32.3) - HTTP 请求库
 - **Pillow** (11.3.0) - 图像处理库
+- **python-dotenv** (>=1.2.1) - 环境变量加载
 
 ## 🛠️ 开发说明
 

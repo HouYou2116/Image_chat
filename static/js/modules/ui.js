@@ -288,41 +288,160 @@ export function updateApiKeyStatus(message, type) {
     }
 }
 
+// === AUTO 模式 UI 控制 ===
+
+/**
+ * 切换 AUTO 模式的 UI 显示
+ * @param {boolean} isEnabled - 是否启用 AUTO 模式
+ * @param {string} mode - 模式 ('edit' 或 'generate')
+ */
+export function toggleAutoModeUI(isEnabled, mode) {
+    const autoBtn = document.getElementById('autoModeToggle');
+    const editCountGroup = document.getElementById('editCountGroup');
+    const generateCountGroup = document.getElementById('generateCountGroup');
+    const autoPanelEdit = document.getElementById('autoPanelEdit');
+    const autoPanelGenerate = document.getElementById('autoPanelGenerate');
+    const editCountInput = document.getElementById('editCountInput');
+    const imageCountInput = document.getElementById('imageCountInput');
+
+    if (isEnabled) {
+        // 1. 高亮 AUTO 按钮
+        if (autoBtn) autoBtn.classList.add('auto-mode-active');
+
+        // 2. 根据模式显示/隐藏对应的控件
+        if (mode === 'edit') {
+            if (editCountGroup) editCountGroup.style.display = 'none';
+            if (autoPanelEdit) autoPanelEdit.style.display = 'block';
+            if (editCountInput) editCountInput.disabled = true;
+        } else if (mode === 'generate') {
+            if (generateCountGroup) generateCountGroup.style.display = 'none';
+            if (autoPanelGenerate) autoPanelGenerate.style.display = 'block';
+            if (imageCountInput) imageCountInput.disabled = true;
+        }
+
+        console.log(`[UI] AUTO 模式已启用 (${mode})`);
+    } else {
+        // 恢复原状
+        if (autoBtn) autoBtn.classList.remove('auto-mode-active');
+        if (editCountGroup) editCountGroup.style.display = 'block';
+        if (generateCountGroup) generateCountGroup.style.display = 'block';
+        if (autoPanelEdit) autoPanelEdit.style.display = 'none';
+        if (autoPanelGenerate) autoPanelGenerate.style.display = 'none';
+        if (editCountInput) editCountInput.disabled = false;
+        if (imageCountInput) imageCountInput.disabled = false;
+
+        console.log('[UI] AUTO 模式已禁用');
+    }
+}
+
+/**
+ * 更新 AUTO 模式统计数据显示
+ * @param {Object} stats - 统计对象 { total, success, fail }
+ */
+export function updateAutoStatsUI(stats) {
+    // 获取当前激活的面板（根据可见性判断）
+    const autoPanelEdit = document.getElementById('autoPanelEdit');
+    const autoPanelGenerate = document.getElementById('autoPanelGenerate');
+
+    let activePanel = null;
+    if (autoPanelEdit && autoPanelEdit.style.display !== 'none') {
+        activePanel = autoPanelEdit;
+    } else if (autoPanelGenerate && autoPanelGenerate.style.display !== 'none') {
+        activePanel = autoPanelGenerate;
+    }
+
+    if (!activePanel) {
+        console.warn('[UI] updateAutoStatsUI: 没有激活的统计面板');
+        return;
+    }
+
+    // 更新统计数据
+    const totalSpan = activePanel.querySelector('.stat-total');
+    const successSpan = activePanel.querySelector('.stat-success');
+    const failSpan = activePanel.querySelector('.stat-fail');
+
+    if (totalSpan) totalSpan.textContent = stats.total;
+    if (successSpan) successSpan.textContent = stats.success;
+    if (failSpan) failSpan.textContent = stats.fail;
+
+    console.log(`[UI] 统计数据已更新: total=${stats.total}, success=${stats.success}, fail=${stats.fail}`);
+}
+
 // === 结果渲染函数 ===
 
 /**
  * 渲染编辑结果
  * @param {Array} images - 图片数组
+ * @param {boolean} isAutoMode - 是否为 AUTO 模式
  * @returns {Array<string>} 返回下载 URLs 数组
  */
-export function renderEditResults(images) {
+export function renderEditResults(images, isAutoMode = false) {
     const editedImagesDiv = document.getElementById('editedImages');
     if (!editedImagesDiv) {
         console.error('[UI] renderEditResults: editedImages 容器未找到');
         return [];
     }
 
-    let imagesHtml = '<div class="image-gallery">';
-    images.forEach((img, index) => {
-        const imageData = `data:image/png;base64,${img.image_data}`;
-        imagesHtml += `
-            <div class="generated-item">
-                <img src="${imageData}" alt="编辑结果 ${index + 1}" class="js-clickable-image">
+    if (isAutoMode) {
+        // AUTO 模式：追加渲染 + FIFO 队列
+        let gallery = editedImagesDiv.querySelector('.image-gallery');
+        if (!gallery) {
+            gallery = document.createElement('div');
+            gallery.className = 'image-gallery';
+            editedImagesDiv.innerHTML = '';
+            editedImagesDiv.appendChild(gallery);
+        }
+
+        // 渲染新图片
+        images.forEach((img, index) => {
+            const imageData = `data:image/png;base64,${img.image_data}`;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'generated-item';
+            itemDiv.innerHTML = `
+                <img src="${imageData}" alt="编辑结果" class="js-clickable-image">
                 <button class="js-download-single" data-url="${img.download_url}" data-filename="${img.filename}">下载</button>
-            </div>
-        `;
-    });
-    imagesHtml += '</div>';
+            `;
+            gallery.appendChild(itemDiv);
+        });
 
-    editedImagesDiv.innerHTML = imagesHtml;
+        // FIFO 队列控制：保留最新 20 张
+        const items = gallery.querySelectorAll('.generated-item');
+        const MAX_IMAGES = 20;
+        if (items.length > MAX_IMAGES) {
+            const removeCount = items.length - MAX_IMAGES;
+            for (let i = 0; i < removeCount; i++) {
+                items[i].remove();
+            }
+            console.log(`[UI] FIFO 队列：移除了 ${removeCount} 张旧图片`);
+        }
 
-    // 显示/隐藏批量下载按钮
-    const downloadEditBtn = document.getElementById('downloadEditBtn');
-    if (downloadEditBtn) {
-        downloadEditBtn.style.display = images.length > 1 ? 'block' : 'none';
+        // 滚动到底部
+        editedImagesDiv.scrollTop = editedImagesDiv.scrollHeight;
+
+        console.log(`[UI] AUTO 模式追加了 ${images.length} 张图片，当前队列长度: ${gallery.querySelectorAll('.generated-item').length}`);
+    } else {
+        // 普通模式：完全替换
+        let imagesHtml = '<div class="image-gallery">';
+        images.forEach((img, index) => {
+            const imageData = `data:image/png;base64,${img.image_data}`;
+            imagesHtml += `
+                <div class="generated-item">
+                    <img src="${imageData}" alt="编辑结果 ${index + 1}" class="js-clickable-image">
+                    <button class="js-download-single" data-url="${img.download_url}" data-filename="${img.filename}">下载</button>
+                </div>
+            `;
+        });
+        imagesHtml += '</div>';
+        editedImagesDiv.innerHTML = imagesHtml;
+
+        console.log(`[UI] 渲染了 ${images.length} 张编辑结果图片`);
     }
 
-    console.log(`[UI] 渲染了 ${images.length} 张编辑结果图片`);
+    // 显示/隐藏批量下载按钮（AUTO 模式不显示）
+    const downloadEditBtn = document.getElementById('downloadEditBtn');
+    if (downloadEditBtn) {
+        downloadEditBtn.style.display = (images.length > 1 && !isAutoMode) ? 'block' : 'none';
+    }
 
     // 返回下载URLs供状态管理
     return images.map(img => img.download_url);
@@ -331,36 +450,76 @@ export function renderEditResults(images) {
 /**
  * 渲染生成结果
  * @param {Array} images - 图片数组
+ * @param {boolean} isAutoMode - 是否为 AUTO 模式
  * @returns {Array<string>} 返回下载 URLs 数组
  */
-export function renderGenerateResults(images) {
+export function renderGenerateResults(images, isAutoMode = false) {
     const generatedImages = document.getElementById('generatedImages');
     if (!generatedImages) {
         console.error('[UI] renderGenerateResults: generatedImages 容器未找到');
         return [];
     }
 
-    let imagesHtml = '<div class="image-gallery">';
-    images.forEach((img, index) => {
-        const imageData = `data:image/png;base64,${img.image_data}`;
-        imagesHtml += `
-            <div class="generated-item">
-                <img src="${imageData}" alt="生成结果 ${index + 1}" class="js-clickable-image">
+    if (isAutoMode) {
+        // AUTO 模式：追加渲染 + FIFO 队列
+        let gallery = generatedImages.querySelector('.image-gallery');
+        if (!gallery) {
+            gallery = document.createElement('div');
+            gallery.className = 'image-gallery';
+            generatedImages.innerHTML = '';
+            generatedImages.appendChild(gallery);
+        }
+
+        // 渲染新图片
+        images.forEach((img, index) => {
+            const imageData = `data:image/png;base64,${img.image_data}`;
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'generated-item';
+            itemDiv.innerHTML = `
+                <img src="${imageData}" alt="生成结果" class="js-clickable-image">
                 <button class="js-download-single" data-url="${img.download_url}" data-filename="${img.filename}">下载</button>
-            </div>
-        `;
-    });
-    imagesHtml += '</div>';
+            `;
+            gallery.appendChild(itemDiv);
+        });
 
-    generatedImages.innerHTML = imagesHtml;
+        // FIFO 队列控制：保留最新 20 张
+        const items = gallery.querySelectorAll('.generated-item');
+        const MAX_IMAGES = 20;
+        if (items.length > MAX_IMAGES) {
+            const removeCount = items.length - MAX_IMAGES;
+            for (let i = 0; i < removeCount; i++) {
+                items[i].remove();
+            }
+            console.log(`[UI] FIFO 队列：移除了 ${removeCount} 张旧图片`);
+        }
 
-    // 显示/隐藏批量下载按钮
-    const downloadAllBtn = document.getElementById('downloadAllBtn');
-    if (downloadAllBtn) {
-        downloadAllBtn.style.display = images.length > 1 ? 'inline-block' : 'none';
+        // 滚动到底部
+        generatedImages.scrollTop = generatedImages.scrollHeight;
+
+        console.log(`[UI] AUTO 模式追加了 ${images.length} 张图片，当前队列长度: ${gallery.querySelectorAll('.generated-item').length}`);
+    } else {
+        // 普通模式：完全替换
+        let imagesHtml = '<div class="image-gallery">';
+        images.forEach((img, index) => {
+            const imageData = `data:image/png;base64,${img.image_data}`;
+            imagesHtml += `
+                <div class="generated-item">
+                    <img src="${imageData}" alt="生成结果 ${index + 1}" class="js-clickable-image">
+                    <button class="js-download-single" data-url="${img.download_url}" data-filename="${img.filename}">下载</button>
+                </div>
+            `;
+        });
+        imagesHtml += '</div>';
+        generatedImages.innerHTML = imagesHtml;
+
+        console.log(`[UI] 渲染了 ${images.length} 张生成结果图片`);
     }
 
-    console.log(`[UI] 渲染了 ${images.length} 张生成结果图片`);
+    // 显示/隐藏批量下载按钮（AUTO 模式不显示）
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    if (downloadAllBtn) {
+        downloadAllBtn.style.display = (images.length > 1 && !isAutoMode) ? 'inline-block' : 'none';
+    }
 
     // 返回下载URLs供状态管理
     return images.map(img => img.download_url);
