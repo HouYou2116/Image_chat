@@ -558,3 +558,27 @@ export function clearGenerateResults() {
         downloadBtn.style.display = 'none';
     }
 }
+
+// === 结果重置函数 ===
+
+/**
+ * 重置编辑结果区域到初始状态
+ * 在任务失败时调用，清除"处理中..."提示
+ */
+export function resetEditResults() {
+    const editedImagesDiv = document.getElementById('editedImages');
+    if (editedImagesDiv) {
+        editedImagesDiv.innerHTML = '<p>编辑完成后显示</p>';
+    }
+}
+
+/**
+ * 重置生成结果区域到初始状态
+ * 在任务失败时调用，清除"生成中..."提示
+ */
+export function resetGenerateResults() {
+    const generatedImages = document.getElementById('generatedImages');
+    if (generatedImages) {
+        generatedImages.innerHTML = '<p>生成完成后显示</p>';
+    }
+}

@@ -195,9 +195,11 @@ async function handleEditImage() {
             State.setEditDownloadUrls(downloadUrls);
         } else {
             UI.showError(result.error || '编辑失败');
+            UI.resetEditResults();
         }
     } catch (error) {
         UI.showError(error.message || '网络错误');
+        UI.resetEditResults();
     } finally {
         UI.showLoading(false);
     }
@@ -225,9 +227,11 @@ async function handleGenerateImage() {
             State.setDownloadUrls(downloadUrls);
         } else {
             UI.showError(result.error || '生成失败');
+            UI.resetGenerateResults();
         }
     } catch (error) {
         UI.showError(error.message || '网络错误');
+        UI.resetGenerateResults();
     } finally {
         UI.showGenerateLoading(false);
     }
