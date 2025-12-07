@@ -514,7 +514,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('stop-auto-btn') || e.target.id === 'stopAutoBtn') {
         console.log('[AUTO] 用户点击停止按钮');
-        State.setAutoRunning(false);
+
+        // 1. 立即切断所有状态
+        State.setAutoEnabled(false);    // 关闭 AUTO 模式
+        State.setAutoRunning(false);    // 停止循环
+        State.setAutoMode(null);        // 清除模式记录
+
+        // 2. 立即还原 UI（隐藏统计面板，显示普通控件）
+        UI.toggleAutoModeUI(false);
+
+        console.log('[AUTO] 已通过停止按钮关闭');
     }
 });
 

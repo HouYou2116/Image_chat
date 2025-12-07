@@ -67,13 +67,13 @@ def edit_image():
 
     except ValueError as e:
         # 参数验证错误 (400)
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'success': False, 'error': str(e)}), 400
 
     except Exception as e:
         # 服务器内部错误 (500)
         total_duration = (datetime.now() - start_time).total_seconds()
         log_error("图像编辑异常", str(e), f"处理耗时: {total_duration:.2f}秒")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @api_bp.route('/generate-image', methods=['POST'])
 def generate_image():
@@ -134,13 +134,13 @@ def generate_image():
 
     except ValueError as e:
         # 参数验证错误 (400)
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'success': False, 'error': str(e)}), 400
 
     except Exception as e:
         # 服务器内部错误 (500)
         total_duration = (datetime.now() - start_time).total_seconds()
         log_error("图像生成异常", str(e), f"处理耗时: {total_duration:.2f}秒")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @api_bp.route('/config', methods=['GET'])
 def get_config():
