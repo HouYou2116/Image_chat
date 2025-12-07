@@ -524,3 +524,37 @@ export function renderGenerateResults(images, isAutoMode = false) {
     // 返回下载URLs供状态管理
     return images.map(img => img.download_url);
 }
+
+// === 结果清空函数 ===
+
+/**
+ * 清空编辑结果区域
+ * 在开始新的手动编辑任务时调用
+ */
+export function clearEditResults() {
+    const editedImagesDiv = document.getElementById('editedImages');
+    const downloadBtn = document.getElementById('downloadEditBtn');
+
+    if (editedImagesDiv) {
+        editedImagesDiv.innerHTML = '<p>处理中...</p>';
+    }
+    if (downloadBtn) {
+        downloadBtn.style.display = 'none';
+    }
+}
+
+/**
+ * 清空生成结果区域
+ * 在开始新的手动生成任务时调用
+ */
+export function clearGenerateResults() {
+    const generatedImages = document.getElementById('generatedImages');
+    const downloadBtn = document.getElementById('downloadAllBtn');
+
+    if (generatedImages) {
+        generatedImages.innerHTML = '<p>生成中...</p>';
+    }
+    if (downloadBtn) {
+        downloadBtn.style.display = 'none';
+    }
+}

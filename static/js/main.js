@@ -186,6 +186,7 @@ async function handleEditImage() {
     try {
         UI.showLoading(true);
         UI.hideError();
+        UI.clearEditResults();
 
         const result = await runTaskOnce('edit');
 
@@ -215,6 +216,7 @@ async function handleGenerateImage() {
     try {
         UI.showGenerateLoading(true);
         UI.hideError();
+        UI.clearGenerateResults();
 
         const result = await runTaskOnce('generate');
 
@@ -344,6 +346,7 @@ async function runAutoLoop(mode) {
 
     // 3. 主循环
     while (State.isAutoRunning()) {
+        UI.hideError();
         try {
             // 更新统计：total++
             State.incrementAutoTotal();
