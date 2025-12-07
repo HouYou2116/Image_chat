@@ -86,7 +86,7 @@ class GoogleProvider(ImageProvider):
                 log_api_call('google', 'API调用成功', f"响应类型: {type(response)}")
             except Exception as e:
                 log_error('Google Gemini API错误', str(e), f"模型: {gemini_model}, 内容类型: {[type(item) for item in contents]}")
-                raise
+                continue  # 跳过当前失败，继续下一张
 
             if hasattr(response, 'candidates') and response.candidates:
                 log_provider_message('google', f"响应包含 {len(response.candidates)} 个候选结果")
@@ -105,6 +105,12 @@ class GoogleProvider(ImageProvider):
                         log_provider_message('google', f"候选结果 {j+1} 不包含有效内容")
             else:
                 log_provider_message('google', "响应不包含候选结果", "WARNING")
+
+        # 检查是否所有图片都失败
+        if not generated_images:
+            error_msg = f"所有 {image_count} 张图片生成均失败，请检查日志"
+            log_error('批量生成完全失败', error_msg, f"model={model}")
+            raise RuntimeError(error_msg)
 
         log_provider_message('google', f"Google Gemini生成完成: 成功生成 {len(generated_images)} 张图片")
         return generated_images

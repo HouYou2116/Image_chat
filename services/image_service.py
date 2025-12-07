@@ -264,6 +264,12 @@ def process_image_edit(
     )
     api_call_duration = (datetime.now() - api_call_start).total_seconds()
 
+    # 检查是否部分成功
+    if len(generated_images) < image_count and len(generated_images) > 0:
+        image_logger.warning(
+            f"部分生成失败: 请求{image_count}张，成功{len(generated_images)}张"
+        )
+
     # 6. 记录API调用完成
     log_api_call(
         provider_name,
@@ -331,6 +337,12 @@ def process_image_generation(
         **extra_params
     )
     api_call_duration = (datetime.now() - api_call_start).total_seconds()
+
+    # 检查是否部分成功
+    if len(generated_images) < image_count and len(generated_images) > 0:
+        image_logger.warning(
+            f"部分生成失败: 请求{image_count}张，成功{len(generated_images)}张"
+        )
 
     # 5. 记录API调用完成
     log_api_call(

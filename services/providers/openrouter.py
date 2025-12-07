@@ -81,18 +81,24 @@ class OpenRouterProvider(ImageProvider):
                     except ValueError as e:
                         # 模型拒绝生成（来自 refusal 检查）
                         log_error('模型拒绝生成', str(e), f"第{i+1}张图片")
-                        raise  # 重新抛出，让上层处理
+                        continue  # 继续尝试下一张图片
                 else:
                     log_provider_message('openrouter', "响应不包含有效选择", "WARNING")
 
             except Exception as e:
                 log_error('OpenRouter API调用失败', str(e), f"模型: {model}, 第{i+1}张图片")
-                raise
+                continue  # 继续尝试下一张图片
 
             # 如果不是最后一次请求，稍微延迟避免频率限制
             if i < image_count - 1:
                 log_provider_message('openrouter', "延迟0.5秒避免频率限制")
                 time.sleep(0.5)
+
+        # 检查是否所有图片都失败
+        if not generated_images:
+            error_msg = f"所有 {image_count} 张图片生成均失败，请检查日志"
+            log_error('批量生成完全失败', error_msg, f"模型: {model}")
+            raise RuntimeError(error_msg)
 
         log_provider_message('openrouter', f"OpenRouter生成完成: 成功生成 {len(generated_images)} 张图片")
         return generated_images

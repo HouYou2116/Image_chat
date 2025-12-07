@@ -66,18 +66,30 @@ class TuziProvider(ImageProvider):
         for i in range(image_count):
             log_provider_message('tuzi', f"生成第 {i+1}/{image_count} 张图片")
 
-            # 仅使用 Chat Completions API
-            image_bytes = self._try_chat_completions(
-                prompt, images, temperature, model
-            )
+            try:
+                # 仅使用 Chat Completions API
+                image_bytes = self._try_chat_completions(
+                    prompt, images, temperature, model
+                )
 
-            generated_images.append(image_bytes)
-            log_image_operation("图片生成成功",
-                              f"第{i+1}张: {len(image_bytes)}字节")
+                generated_images.append(image_bytes)
+                log_image_operation("图片生成成功",
+                                  f"第{i+1}张: {len(image_bytes)}字节")
+
+            except Exception as e:
+                # 记录错误但不中断，继续尝试下一张
+                log_error('Tuzi生成失败', str(e), f"第{i+1}张图片")
+                continue  # 跳过当前失败，继续下一张
 
             # 速率限制（多图生成时）
             if i < image_count - 1:
                 time.sleep(0.5)
+
+        # 检查是否所有图片都失败
+        if not generated_images:
+            error_msg = f"所有 {image_count} 张图片生成均失败，请检查日志"
+            log_error('批量生成完全失败', error_msg, f"model={model}")
+            raise RuntimeError(error_msg)
 
         log_provider_message('tuzi',
             f"生成完成: 成功生成 {len(generated_images)} 张图片")
