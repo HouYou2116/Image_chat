@@ -495,9 +495,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (currentAutoState) {
             // 关闭 AUTO
-            State.setAutoEnabled(false);
-            State.setAutoRunning(false);  // 停止循环
-            State.setAutoMode(null);
+            State.resetAutoState(); // 替换原有的 setAutoEnabled/Running/Mode
+            UI.updateAutoStatsUI(State.getAutoStats()); // 新增：立即清零 UI
+
             UI.toggleAutoModeUI(false);
             console.log('[AUTO] 已关闭');
         } else {
@@ -522,10 +522,9 @@ document.addEventListener('click', (e) => {
     if (e.target.classList.contains('stop-auto-btn') || e.target.id === 'stopAutoBtn') {
         console.log('[AUTO] 用户点击停止按钮');
 
-        // 1. 立即切断所有状态
-        State.setAutoEnabled(false);    // 关闭 AUTO 模式
-        State.setAutoRunning(false);    // 停止循环
-        State.setAutoMode(null);        // 清除模式记录
+        // 1. 立即切断所有状态并重置
+        State.resetAutoState(); // 替换原有的 setAutoEnabled/Running/Mode
+        UI.updateAutoStatsUI(State.getAutoStats()); // 新增：立即清零 UI
 
         // 2. 立即还原 UI（隐藏统计面板，显示普通控件）
         UI.toggleAutoModeUI(false);
