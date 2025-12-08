@@ -81,6 +81,8 @@ select:focus {
 textarea {
     min-height: 120px;
     line-height: 1.5;
+    resize: vertical;
+    max-width: 100%;
 }
 
 /* Sliders (Range) */
@@ -140,7 +142,9 @@ button:disabled {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     min-height: 200px;
-    max-height: 250px;
+    /* max-height: 250px; */  /* 已删除：允许更大的预览尺寸 */
+    height: auto;
+    padding: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -212,7 +216,9 @@ button:disabled {
 
 .image-preview img {
     max-width: 100%;
-    max-height: 200px;
+    max-height: 600px;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
@@ -396,4 +402,34 @@ select:disabled {
     .error-message {
         margin: 20px;
     }
+}
+
+/* ============================================================================
+   Upload Gallery Styles - 多图上传预览样式
+   ============================================================================ */
+
+.upload-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.upload-thumbnail {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }

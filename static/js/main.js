@@ -566,21 +566,42 @@ document.getElementById('imageInput').addEventListener('change', function(e) {
             };
             reader.readAsDataURL(files[0]);
         } else {
-            // 多图片预览
-            let previewsHtml = `<div class="image-gallery"><p>已选择${files.length}张图片：</p>`;
+            // === 多图片预览 (修复竞态问题版) ===
 
-            for (let i = 0; i < Math.min(files.length, 5); i++) {
+            // 1. 准备容器和变量
+            const maxFiles = Math.min(files.length, 5);
+            let loadedCount = 0; // 计数器：记录已加载完成的图片数
+            const imageHtmlArray = new Array(maxFiles); // 数组：确保图片按原本顺序排列
+
+            // 预先显示"正在加载预览..."，避免空白
+            previewsDiv.innerHTML = '<p style="color:#888;">正在加载预览...</p>';
+
+            for (let i = 0; i < maxFiles; i++) {
                 const reader = new FileReader();
+
                 reader.onload = function(e) {
-                    previewsHtml += `<img src="${e.target.result}" alt="图片${i + 1}" style="max-width: 100px; margin: 5px;">`;
-                    if (i === Math.min(files.length, 5) - 1) {
-                        previewsHtml += '</div>';
+                    // 2. 将结果存入对应索引的数组位置 (保证顺序，无论谁先加载完)
+                    imageHtmlArray[i] = `<div class="upload-thumbnail"><img src="${e.target.result}" alt="预览"></div>`;
+
+                    // 3. 增加计数器
+                    loadedCount++;
+
+                    // 4. 只有当所有图片都加载完了，才一次性更新 DOM
+                    if (loadedCount === maxFiles) {
+                        let finalHtml = `<p style="margin-bottom: 10px; color: var(--text-secondary);">已选择 ${files.length} 张图片：</p>`;
+
+                        finalHtml += '<div class="upload-gallery">';
+                        finalHtml += imageHtmlArray.join(''); // 将数组合并为字符串
+                        finalHtml += '</div>';
+
                         if (files.length > 5) {
-                            previewsHtml += `<p>...等${files.length}张图片</p>`;
+                            finalHtml += `<p style="margin-top: 10px; color: var(--text-secondary);">...等 ${files.length} 张图片</p>`;
                         }
-                        previewsDiv.innerHTML = previewsHtml;
+
+                        previewsDiv.innerHTML = finalHtml;
                     }
                 };
+
                 reader.readAsDataURL(files[i]);
             }
 
