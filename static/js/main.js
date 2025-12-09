@@ -182,17 +182,22 @@ async function handleEditImage() {
         return;
     }
 
-    // === 普通模式：单次执行 ===
+    // === 普通模式：单次执行（使用流式 API）===
     try {
         UI.showLoading(true);
         UI.hideError();
         UI.clearEditResults();
 
-        const result = await runTaskOnce('edit');
+        const result = await runTaskOnce('edit', { useStream: true });
 
         if (result.success) {
-            const downloadUrls = UI.renderEditResults(result.images, false);  // isAutoMode = false
-            State.setEditDownloadUrls(downloadUrls);
+            console.log(`[Edit] 流式接收完成，共 ${result.totalReceived} 张图片`);
+            // 流式模式下，图片已在回调中逐张渲染
+            // 只需更新批量下载按钮和状态
+            if (result.images && result.images.length > 0) {
+                const downloadUrls = result.images.map(img => img.download_url);
+                State.setEditDownloadUrls(downloadUrls);
+            }
         } else {
             UI.showError(result.error || '编辑失败');
             UI.resetEditResults();
@@ -214,17 +219,22 @@ async function handleGenerateImage() {
         return;
     }
 
-    // === 普通模式：单次执行 ===
+    // === 普通模式：单次执行（使用流式 API）===
     try {
         UI.showGenerateLoading(true);
         UI.hideError();
         UI.clearGenerateResults();
 
-        const result = await runTaskOnce('generate');
+        const result = await runTaskOnce('generate', { useStream: true });
 
         if (result.success) {
-            const downloadUrls = UI.renderGenerateResults(result.images, false);  // isAutoMode = false
-            State.setDownloadUrls(downloadUrls);
+            console.log(`[Generate] 流式接收完成，共 ${result.totalReceived} 张图片`);
+            // 流式模式下，图片已在回调中逐张渲染
+            // 只需更新批量下载按钮和状态
+            if (result.images && result.images.length > 0) {
+                const downloadUrls = result.images.map(img => img.download_url);
+                State.setDownloadUrls(downloadUrls);
+            }
         } else {
             UI.showError(result.error || '生成失败');
             UI.resetGenerateResults();
@@ -247,6 +257,7 @@ async function handleGenerateImage() {
  */
 async function runTaskOnce(mode, options = {}) {
     const apiKey = State.getApiKey();
+    const useStream = options.useStream !== false;  // 默认启用流式
 
     if (mode === 'edit') {
         // 编辑模式验证
@@ -293,7 +304,24 @@ async function runTaskOnce(mode, options = {}) {
         }
 
         // 调用 API
-        return await API.editImage(formData);
+        if (useStream) {
+            // 流式模式
+            const receivedImages = [];
+            const result = await API.editImageStream(formData, (image) => {
+                // 每收到一张图片，立即追加渲染
+                receivedImages.push(image);
+                UI.renderEditResults([image], true);  // isAutoMode = true（追加模式）
+            });
+            return {
+                success: result.success,
+                images: receivedImages,
+                totalReceived: result.totalReceived,
+                error: result.error
+            };
+        } else {
+            // 非流式模式（向后兼容）
+            return await API.editImage(formData);
+        }
 
     } else if (mode === 'generate') {
         // 生成模式验证
@@ -328,7 +356,24 @@ async function runTaskOnce(mode, options = {}) {
         }
 
         // 调用 API
-        return await API.generateImage(formData);
+        if (useStream) {
+            // 流式模式
+            const receivedImages = [];
+            const result = await API.generateImageStream(formData, (image) => {
+                // 每收到一张图片，立即追加渲染
+                receivedImages.push(image);
+                UI.renderGenerateResults([image], true);  // isAutoMode = true（追加模式）
+            });
+            return {
+                success: result.success,
+                images: receivedImages,
+                totalReceived: result.totalReceived,
+                error: result.error
+            };
+        } else {
+            // 非流式模式（向后兼容）
+            return await API.generateImage(formData);
+        }
     }
 
     throw new Error('无效的模式: ' + mode);
@@ -358,8 +403,8 @@ async function runAutoLoop(mode) {
 
             console.log(`[AUTO] 第 ${State.getAutoStats().total} 次请求...`);
 
-            // 执行一次任务（强制 image_count = 1）
-            const result = await runTaskOnce(mode, { forceImageCount: 1 });
+            // 执行一次任务（强制 image_count = 1，禁用流式）
+            const result = await runTaskOnce(mode, { forceImageCount: 1, useStream: false });
 
             if (result.success) {
                 // 成功：success++，渲染结果（AUTO 模式）

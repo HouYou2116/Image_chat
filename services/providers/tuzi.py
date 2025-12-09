@@ -21,8 +21,10 @@ import json
 import re
 import time
 import requests
+from typing import Optional
 from openai import OpenAI
 from .base import ImageProvider
+from ..retry_utils import common_retry_strategy
 from ..logging_config import log_provider_message, log_api_call, log_error, log_image_operation
 from ..config import get_provider_base_url
 
@@ -39,11 +41,11 @@ class TuziProvider(ImageProvider):
     def generate(self, prompt: str, images: list, temperature: float,
                  model: str, image_count: int, **kwargs) -> list[bytes]:
         """
-        使用 Tuzi API 生成图像（统一使用 Chat Completions API）（忽略 kwargs 中的额外参数）
+        使用 Tuzi API 生成图像（批量，兼容旧接口）
 
         Args:
             prompt: 用户指令
-            images: 输入图片字节列表（文生图为空，图生图包含图片）
+            images: 输入图片字节列表
             temperature: 0-1 的浮点数
             model: 模型 ID
             image_count: 生成图片数量（1-4）
@@ -52,14 +54,11 @@ class TuziProvider(ImageProvider):
             list[bytes]: 图片二进制数据列表
 
         Raises:
-            ValueError: 内容审核拒绝
-            RuntimeError: 图片提取失败
-            Exception: 其他 API 错误
+            RuntimeError: 所有图片生成均失败
         """
         log_provider_message('tuzi',
-            f"开始图像生成: prompt长度={len(prompt)}, "
-            f"输入图片={len(images)}, 数量={image_count}, "
-            f"temperature={temperature}")
+            f"开始批量生成: prompt长度={len(prompt)}, 输入图片={len(images)}, "
+            f"数量={image_count}, temperature={temperature}")
 
         generated_images = []
 
@@ -67,21 +66,21 @@ class TuziProvider(ImageProvider):
             log_provider_message('tuzi', f"生成第 {i+1}/{image_count} 张图片")
 
             try:
-                # 仅使用 Chat Completions API
-                image_bytes = self._try_chat_completions(
-                    prompt, images, temperature, model
+                image_bytes = self.generate_single(
+                    prompt=prompt,
+                    images=images,
+                    temperature=temperature,
+                    model=model,
+                    **kwargs
                 )
-
                 generated_images.append(image_bytes)
-                log_image_operation("图片生成成功",
-                                  f"第{i+1}张: {len(image_bytes)}字节")
+                log_image_operation("图片生成成功", f"第{i+1}张: {len(image_bytes)}字节")
 
             except Exception as e:
-                # 记录错误但不中断，继续尝试下一张
                 log_error('Tuzi生成失败', str(e), f"第{i+1}张图片")
-                continue  # 跳过当前失败，继续下一张
+                continue  # 跳过失败，继续下一张
 
-            # 速率限制（多图生成时）
+            # 速率限制
             if i < image_count - 1:
                 time.sleep(0.5)
 
@@ -95,10 +94,39 @@ class TuziProvider(ImageProvider):
             f"生成完成: 成功生成 {len(generated_images)} 张图片")
         return generated_images
 
-    def _try_chat_completions(self, prompt: str, images: list,
+    @common_retry_strategy
+    def generate_single(self, prompt: str, images: list, temperature: float,
+                       model: str, image: Optional[bytes] = None, **kwargs) -> bytes:
+        """
+        生成单张图像（带重试保护）
+
+        Args:
+            prompt: 用户指令
+            images: 输入图片字节列表
+            temperature: 温度参数
+            model: 模型名称
+            image: 未使用（保留兼容性）
+            **kwargs: 额外参数
+
+        Returns:
+            bytes: 单张图片的字节数据
+
+        Raises:
+            ValueError: 内容审核拒绝（不可重试）
+            RuntimeError: 网络/解析失败（可重试）
+        """
+        log_provider_message(
+            'tuzi',
+            f"generate_single: model={model}, temperature={temperature}, 输入图片={len(images)}"
+        )
+
+        # 直接使用流式请求，不再尝试非流式（消除双重请求）
+        return self._generate_with_stream(prompt, images, temperature, model)
+
+    def _generate_with_stream(self, prompt: str, images: list,
                              temperature: float, model: str) -> bytes:
         """
-        使用 Chat Completions API 生成图像
+        使用流式 Chat Completions API 生成图像（单一路径，消除双重请求）
 
         Args:
             prompt: 用户指令
@@ -110,11 +138,11 @@ class TuziProvider(ImageProvider):
             bytes: 图片二进制数据
 
         Raises:
-            ValueError: 内容审核拒绝
-            RuntimeError: 图片提取失败
+            ValueError: 内容审核拒绝（不可重试）
+            RuntimeError: 网络/解析失败（可重试）
         """
         log_provider_message('tuzi',
-            f"Chat Completions: model={model}, temperature={temperature}, "
+            f"Chat Completions (流式): model={model}, temperature={temperature}, "
             f"输入图片={len(images)}")
 
         # 构建消息内容
@@ -130,36 +158,20 @@ class TuziProvider(ImageProvider):
                 log_image_operation("添加输入图片",
                                   f"第{i+1}张: {len(img_data)}字节")
 
-        # 尝试非流式请求
+        # 直接使用流式请求（不再尝试非流式）
+        log_api_call('tuzi', '调用流式 Chat Completions', f"model={model}")
+
         try:
-            log_api_call('tuzi', '调用非流式 Chat Completions', f"model={model}")
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": content}],
                 temperature=temperature,
-                stream=False
+                stream=True  # 固定使用流式
             )
-
-            # 日志输出（截断）
-            log_provider_message('tuzi',
-                f"响应: {self._truncate_logs(response.model_dump())}")
-
-            # 使用新的提取方法
-            message = response.choices[0].message
-            return self._extract_image_data_from_message(message)
-
         except Exception as e:
-            log_error('非流式请求失败', str(e), f"model={model}")
-            log_provider_message('tuzi', "尝试流式请求...", "WARNING")
-
-        # 备用：流式请求
-        log_api_call('tuzi', '调用流式 Chat Completions', f"model={model}")
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": content}],
-            temperature=temperature,
-            stream=True
-        )
+            # 不捕获，直接让异常向上传播给重试装饰器
+            log_error('流式请求失败', str(e), f"model={model}")
+            raise RuntimeError(f"API 调用失败: {str(e)}")
 
         # 收集流式响应
         full_content = ""
@@ -212,10 +224,25 @@ class TuziProvider(ImageProvider):
         if hasattr(message, 'content') and message.content:
             self._check_content_refusal(message.content)
 
-        # Step 4: 所有方法失败
+        # Step 4: 检查是否有内容但提取失败（软拒绝检测）
+        if hasattr(message, 'content') and message.content:
+            content_lower = message.content.lower()
+            soft_refusal_keywords = [
+                "sorry", "cannot", "can't", "unable to",
+                "don't", "won't", "inappropriate",
+                "against", "policy", "guidelines"
+            ]
+
+            for keyword in soft_refusal_keywords:
+                if keyword in content_lower:
+                    log_error('隐式内容拒绝', keyword,
+                             f"内容前200字符: {message.content[:200]}")
+                    raise ValueError(f"模型隐式拒绝（包含关键词'{keyword}'）: {message.content[:100]}")
+
+        # Step 5: 所有方法失败（响应有内容但无图片，通常是内容问题）
         log_error('图片提取失败', '所有提取方法均失败',
                  f"message完整信息: {self._truncate_logs(message.model_dump())}")
-        raise RuntimeError("无法从响应中提取图片数据")
+        raise ValueError("无法从响应中提取图片数据，可能是内容不符合要求")
 
     def _check_content_refusal(self, content: str) -> None:
         """
@@ -228,13 +255,22 @@ class TuziProvider(ImageProvider):
             ValueError: 检测到内容审核拒绝
         """
         refusal_keywords = [
+            # 英文关键词（通用）
+            "sorry", "cannot", "can't", "unable to",
+            "don't", "won't", "inappropriate",
+            "against our policy", "violates", "prohibited",
+
+            # 平台特定关键词
             "blocked by Google Gemini",
             "PROHIBITED_CONTENT",
+            "SAFETY",
             "blocked by policy",
             "content is prohibited",
             "violates our content policy",
-            "不符合内容政策",
-            "违反了内容政策"
+
+            # 中文关键词
+            "抱歉", "无法", "不能", "不符合",
+            "违反", "禁止", "政策"
         ]
 
         content_lower = content.lower()

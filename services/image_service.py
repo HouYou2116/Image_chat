@@ -12,8 +12,9 @@
 import os
 import base64
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Generator, Any
 from werkzeug.datastructures import FileStorage
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from services.providers import get_provider
 from services.logging_config import (
@@ -355,3 +356,278 @@ def process_image_generation(
     result_images = _save_and_encode_images(generated_images, "generated")
 
     return result_images
+
+
+# ============================================================================
+# 流式并发服务函数（新增）
+# ============================================================================
+
+def process_image_edit_stream(
+    provider_name: str,
+    api_key: str,
+    model: str,
+    temperature: float,
+    image_count: int,
+    instruction: str,
+    uploaded_files: List[FileStorage],
+    **extra_params
+) -> Generator[Dict[str, Any], None, None]:
+    """
+    处理图像编辑请求（流式并发版本）
+
+    使用 ThreadPoolExecutor 并发生成多张图片，逐张返回结果
+    每完成一张图片就 yield 一次，前端可以实时显示
+
+    Args:
+        provider_name: 服务商名称 (google/openrouter/tuzi)
+        api_key: API密钥
+        model: 模型名称
+        temperature: 温度参数
+        image_count: 生成图片数量 (1-4)
+        instruction: 编辑指令
+        uploaded_files: 上传的图片文件列表
+        **extra_params: 额外参数（如 aspect_ratio, resolution）
+
+    Yields:
+        Dict: 每完成一张图片就 yield 一个字典
+            {
+                'index': int,          # 图片索引（1-based）
+                'filename': str,       # 文件名
+                'download_url': str,   # 下载URL
+                'image_data': str      # Base64编码的图片数据
+            }
+
+    Raises:
+        ValueError: 参数验证失败
+        RuntimeError: 所有图片生成均失败
+    """
+    # 1. 参数验证
+    _validate_image_count(image_count)
+    _validate_instruction(instruction)
+
+    # 2. 读取上传的文件
+    image_bytes_list = _read_uploaded_files(uploaded_files)
+
+    # 3. 构建编辑Prompt
+    prompt = _build_edit_prompt(instruction, len(image_bytes_list))
+
+    # 4. 记录API调用开始
+    log_api_call(
+        provider_name,
+        "开始并发图像编辑",
+        f"模型: {model}, 图片数量: {len(image_bytes_list)}, 生成数量: {image_count}"
+    )
+
+    # 5. 获取Provider实例
+    provider_instance = get_provider(provider_name, api_key)
+
+    # 6. 并发生成图片
+    api_call_start = datetime.now()
+    success_count = 0
+    failed_count = 0
+
+    # 使用 ThreadPoolExecutor 并发提交任务
+    with ThreadPoolExecutor(max_workers=image_count) as executor:
+        # 提交所有任务
+        future_to_index = {}
+        for i in range(image_count):
+            future = executor.submit(
+                provider_instance.generate_single,
+                prompt=prompt,
+                images=image_bytes_list,
+                temperature=temperature,
+                model=model,
+                **extra_params
+            )
+            future_to_index[future] = i + 1  # 索引从 1 开始
+
+        # 逐个获取完成的任务结果
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+
+            try:
+                # 获取生成的图片
+                image_bytes = future.result()
+                success_count += 1
+
+                # 保存图片并编码
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"edited_{timestamp}_{index}.png"
+                filepath = os.path.join('output', filename)
+
+                # 保存到文件
+                with open(filepath, 'wb') as f:
+                    f.write(image_bytes)
+
+                # Base64 编码
+                img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+                log_image_operation(
+                    "图片编辑成功",
+                    f"第{index}张: {filename}, {len(image_bytes)}字节"
+                )
+
+                # 逐张返回结果
+                yield {
+                    'index': index,
+                    'filename': filename,
+                    'download_url': f'/download/{filename}',
+                    'image_data': img_b64
+                }
+
+            except Exception as e:
+                failed_count += 1
+                log_error(
+                    '并发生成失败',
+                    f"第{index}张图片生成失败",
+                    str(e)
+                )
+                # 注意：这里不 yield 失败的图片，只返回成功的
+                continue
+
+    # 7. 记录最终统计
+    api_call_duration = (datetime.now() - api_call_start).total_seconds()
+    log_api_call(
+        provider_name,
+        "并发图像编辑完成",
+        f"成功: {success_count}/{image_count}, 失败: {failed_count}, 耗时: {api_call_duration:.2f}秒"
+    )
+
+    # 8. 检查是否所有图片都失败
+    if success_count == 0:
+        error_msg = f"所有 {image_count} 张图片生成均失败，请检查日志"
+        log_error('批量生成完全失败', error_msg, f"model={model}")
+        raise RuntimeError(error_msg)
+
+
+def process_image_generation_stream(
+    provider_name: str,
+    api_key: str,
+    model: str,
+    temperature: float,
+    image_count: int,
+    description: str,
+    **extra_params
+) -> Generator[Dict[str, Any], None, None]:
+    """
+    处理图像生成请求（流式并发版本）
+
+    使用 ThreadPoolExecutor 并发生成多张图片，逐张返回结果
+    每完成一张图片就 yield 一次，前端可以实时显示
+
+    Args:
+        provider_name: 服务商名称 (google/openrouter/tuzi)
+        api_key: API密钥
+        model: 模型名称
+        temperature: 温度参数
+        image_count: 生成图片数量 (1-4)
+        description: 图像描述
+        **extra_params: 额外参数
+
+    Yields:
+        Dict: 每完成一张图片就 yield 一个字典
+            {
+                'index': int,          # 图片索引（1-based）
+                'filename': str,       # 文件名
+                'download_url': str,   # 下载URL
+                'image_data': str      # Base64编码的图片数据
+            }
+
+    Raises:
+        ValueError: 参数验证失败
+        RuntimeError: 所有图片生成均失败
+    """
+    # 1. 参数验证
+    _validate_image_count(image_count)
+    _validate_description(description)
+
+    # 2. 生成模式直接使用description作为prompt
+    prompt = description
+
+    # 3. 记录API调用开始
+    log_api_call(
+        provider_name,
+        "开始并发图像生成",
+        f"模型: {model}, 生成数量: {image_count}"
+    )
+
+    # 4. 获取Provider实例
+    provider_instance = get_provider(provider_name, api_key)
+
+    # 5. 并发生成图片
+    api_call_start = datetime.now()
+    success_count = 0
+    failed_count = 0
+
+    # 使用 ThreadPoolExecutor 并发提交任务
+    with ThreadPoolExecutor(max_workers=image_count) as executor:
+        # 提交所有任务
+        future_to_index = {}
+        for i in range(image_count):
+            future = executor.submit(
+                provider_instance.generate_single,
+                prompt=prompt,
+                images=[],  # 生成模式不需要输入图片
+                temperature=temperature,
+                model=model,
+                **extra_params
+            )
+            future_to_index[future] = i + 1  # 索引从 1 开始
+
+        # 逐个获取完成的任务结果
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+
+            try:
+                # 获取生成的图片
+                image_bytes = future.result()
+                success_count += 1
+
+                # 保存图片并编码
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"generated_{timestamp}_{index}.png"
+                filepath = os.path.join('output', filename)
+
+                # 保存到文件
+                with open(filepath, 'wb') as f:
+                    f.write(image_bytes)
+
+                # Base64 编码
+                img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+                log_image_operation(
+                    "图片生成成功",
+                    f"第{index}张: {filename}, {len(image_bytes)}字节"
+                )
+
+                # 逐张返回结果
+                yield {
+                    'index': index,
+                    'filename': filename,
+                    'download_url': f'/download/{filename}',
+                    'image_data': img_b64
+                }
+
+            except Exception as e:
+                failed_count += 1
+                log_error(
+                    '并发生成失败',
+                    f"第{index}张图片生成失败",
+                    str(e)
+                )
+                # 注意：这里不 yield 失败的图片，只返回成功的
+                continue
+
+    # 6. 记录最终统计
+    api_call_duration = (datetime.now() - api_call_start).total_seconds()
+    log_api_call(
+        provider_name,
+        "并发图像生成完成",
+        f"成功: {success_count}/{image_count}, 失败: {failed_count}, 耗时: {api_call_duration:.2f}秒"
+    )
+
+    # 7. 检查是否所有图片都失败
+    if success_count == 0:
+        error_msg = f"所有 {image_count} 张图片生成均失败，请检查日志"
+        log_error('批量生成完全失败', error_msg, f"model={model}")
+        raise RuntimeError(error_msg)

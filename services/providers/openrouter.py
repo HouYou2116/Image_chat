@@ -4,8 +4,10 @@ import json
 import requests
 import re
 import time
+from typing import Optional
 from openai import OpenAI
 from .base import ImageProvider
+from ..retry_utils import common_retry_strategy
 from ..logging_config import log_provider_message, log_api_call, log_error, log_image_operation
 
 
@@ -26,70 +28,34 @@ class OpenRouterProvider(ImageProvider):
         )
 
     def generate(self, prompt: str, images: list, temperature: float, model: str, image_count: int, **kwargs) -> list[bytes]:
-        """使用OpenRouter生成图像（忽略 kwargs 中的额外参数）"""
+        """使用OpenRouter生成图像（批量，兼容旧接口）"""
+        log_provider_message(
+            'openrouter',
+            f"开始批量生成: prompt长度={len(prompt)}, 输入图片数量={len(images)}, "
+            f"生成数量={image_count}, temperature={temperature}"
+        )
+
         generated_images = []
 
-        log_provider_message('openrouter', f"开始图像生成任务: prompt长度={len(prompt)}, 输入图片数量={len(images)}, 生成数量={image_count}, temperature={temperature}")
-
-        # OpenRouter的单次API调用只能生成一张图片，需要多次调用
         for i in range(image_count):
-            log_provider_message('openrouter', f"生成第 {i+1}/{image_count} 张图片...")
-
-            # 构建消息内容
-            content = [{"type": "text", "text": prompt}]
-
-            # 如果有上传的图片，添加到消息中
-            if images:
-                for j, img_data in enumerate(images):
-                    if isinstance(img_data, bytes):
-                        # 将二进制图片数据转换为base64
-                        img_b64 = base64.b64encode(img_data).decode('utf-8')
-                        content.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
-                        })
-                        log_image_operation("转换输入图片", f"第{j+1}张: {len(img_data)}字节 -> base64")
+            log_provider_message('openrouter', f"生成第 {i+1}/{image_count} 张图片")
 
             try:
-                # 调用 OpenAI SDK
-                log_api_call('openrouter', 'API调用开始', f"模型: {model}")
-                response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": content}],
+                image_bytes = self.generate_single(
+                    prompt=prompt,
+                    images=images,
                     temperature=temperature,
-                    extra_body={"modalities": ["image", "text"]}  # 关键参数
+                    model=model,
+                    **kwargs
                 )
-                log_api_call('openrouter', 'API调用成功', f"响应类型: {type(response)}")
-
-                # ✅ 智能日志：输出响应（自动截断超长字符串）
-                log_provider_message('openrouter', f"OpenRouter Response: {self._truncate_logs(response.model_dump())}")
-
-                # 提取图片数据
-                if response.choices and len(response.choices) > 0:
-                    message = response.choices[0].message
-
-                    try:
-                        # ✅ 使用新的统一提取方法（支持所有字段）
-                        image_bytes = self._extract_image_data_from_message(message)
-
-                        if image_bytes:
-                            generated_images.append(image_bytes)
-                            log_provider_message('openrouter', f"第 {i+1} 张图片生成成功: {len(image_bytes)}字节")
-                        else:
-                            log_error('图片提取失败', '所有提取方法均失败',
-                                     f"message 完整信息: {message.model_dump_json()[:500]}")
-                    except ValueError as e:
-                        # 模型拒绝生成（来自 refusal 检查）
-                        log_error('模型拒绝生成', str(e), f"第{i+1}张图片")
-                        continue  # 继续尝试下一张图片
-                else:
-                    log_provider_message('openrouter', "响应不包含有效选择", "WARNING")
+                generated_images.append(image_bytes)
+                log_image_operation("图片生成成功", f"第{i+1}张: {len(image_bytes)}字节")
 
             except Exception as e:
-                log_error('OpenRouter API调用失败', str(e), f"模型: {model}, 第{i+1}张图片")
-                continue  # 继续尝试下一张图片
+                log_error('单张图片生成失败', str(e), f"第{i+1}张图片")
+                continue  # 跳过失败，继续下一张
 
-            # 如果不是最后一次请求，稍微延迟避免频率限制
+            # 速率限制：避免触发 OpenRouter 的频率限制
             if i < image_count - 1:
                 log_provider_message('openrouter', "延迟0.5秒避免频率限制")
                 time.sleep(0.5)
@@ -97,11 +63,93 @@ class OpenRouterProvider(ImageProvider):
         # 检查是否所有图片都失败
         if not generated_images:
             error_msg = f"所有 {image_count} 张图片生成均失败，请检查日志"
-            log_error('批量生成完全失败', error_msg, f"模型: {model}")
+            log_error('批量生成完全失败', error_msg, f"model={model}")
             raise RuntimeError(error_msg)
 
-        log_provider_message('openrouter', f"OpenRouter生成完成: 成功生成 {len(generated_images)} 张图片")
+        log_provider_message('openrouter', f"批量生成完成: 成功生成 {len(generated_images)} 张图片")
         return generated_images
+
+    @common_retry_strategy
+    def generate_single(self, prompt: str, images: list, temperature: float, model: str, image: Optional[bytes] = None, **kwargs) -> bytes:
+        """
+        生成单张图像（带重试保护）
+
+        Args:
+            prompt: 用户指令
+            images: 输入图片字节列表
+            temperature: 温度参数
+            model: 模型名称
+            image: 未使用（保留兼容性）
+            **kwargs: 额外参数（OpenRouter 当前不使用）
+
+        Returns:
+            bytes: 单张图片的字节数据
+
+        Raises:
+            RuntimeError: 生成失败
+            ValueError: 模型拒绝生成
+        """
+        log_provider_message(
+            'openrouter',
+            f"generate_single: model={model}, temperature={temperature}, 输入图片={len(images)}"
+        )
+
+        # 构建消息内容
+        content = [{"type": "text", "text": prompt}]
+
+        # 如果有上传的图片，添加到消息中
+        if images:
+            for j, img_data in enumerate(images):
+                if isinstance(img_data, bytes):
+                    # 将二进制图片数据转换为base64
+                    img_b64 = base64.b64encode(img_data).decode('utf-8')
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
+                    })
+                    log_image_operation("转换输入图片", f"第{j+1}张: {len(img_data)}字节 -> base64")
+
+        # 调用 OpenAI SDK（会自动重试）
+        log_api_call('openrouter', 'generate_single API调用', f"模型: {model}")
+
+        try:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": content}],
+                temperature=temperature,
+                extra_body={"modalities": ["image", "text"]}
+            )
+            log_api_call('openrouter', 'API调用成功', f"响应类型: {type(response)}")
+        except Exception as e:
+            log_error('OpenRouter API错误', str(e), f"模型: {model}")
+            raise  # 重新抛出，让重试装饰器处理
+
+        # 输出响应日志
+        log_provider_message('openrouter', f"响应: {self._truncate_logs(response.model_dump())}")
+
+        # 提取图片数据
+        if response.choices and len(response.choices) > 0:
+            message = response.choices[0].message
+
+            try:
+                image_bytes = self._extract_image_data_from_message(message)
+
+                if image_bytes:
+                    log_provider_message('openrouter', f"图片生成成功: {len(image_bytes)}字节")
+                    return image_bytes
+                else:
+                    error_msg = "所有提取方法均失败"
+                    log_error('图片提取失败', error_msg, f"message: {message.model_dump_json()[:500]}")
+                    raise RuntimeError(error_msg)
+
+            except ValueError as e:
+                # 模型拒绝生成（来自 refusal 检查）
+                log_error('模型拒绝生成', str(e), "")
+                raise  # 不重试，直接抛出
+        else:
+            error_msg = "响应不包含有效选择"
+            log_provider_message('openrouter', error_msg, "WARNING")
+            raise RuntimeError(error_msg)
 
     def _truncate_logs(self, data):
         """
@@ -209,10 +257,10 @@ class OpenRouterProvider(ImageProvider):
             log_provider_message('openrouter', f"检查 message.content 字段: {len(message.content)}字符")
             return self._extract_image_data_from_content(message.content)
 
-        # 所有方法都失败，抛出异常
+        # 所有方法都失败，抛出异常（有响应但无图片，通常是内容问题）
         truncated_response = self._truncate_logs(message.model_dump())
         log_error('图像提取完全失败', '所有提取方法均失败', f"响应: {truncated_response}")
-        raise RuntimeError(f"无法从响应中提取图片数据。响应摘要: {str(truncated_response)[:300]}")
+        raise ValueError(f"无法从响应中提取图片数据。响应摘要: {str(truncated_response)[:300]}")
 
     def _extract_image_data_from_content(self, content: str) -> bytes:
         """从 message.content 字符串中提取图片数据（瀑布流式提取）"""
@@ -221,6 +269,24 @@ class OpenRouterProvider(ImageProvider):
             return None
 
         log_provider_message('openrouter', f"开始提取图片数据: {content[:200]}...")
+
+        # 优先检查拒绝关键词（在所有提取尝试之前）
+        content_lower = content.lower()
+        refusal_keywords = [
+            "sorry", "cannot", "can't", "unable",
+            "inappropriate", "against policy",
+            "violates", "prohibited", "refusal"
+        ]
+
+        for keyword in refusal_keywords:
+            if keyword in content_lower:
+                # 找到拒绝关键词，提取上下文
+                start_idx = max(0, content_lower.index(keyword) - 50)
+                end_idx = min(len(content), content_lower.index(keyword) + 100)
+                context = content[start_idx:end_idx]
+
+                log_error('检测到拒绝响应', keyword, f"上下文: {context}")
+                raise ValueError(f"模型拒绝生成（包含关键词'{keyword}'）: {context}")
 
         # Step 1: Markdown 图片链接
         markdown_pattern = r'!\[.*?\]\((https?://[^\s)]+)\)'
