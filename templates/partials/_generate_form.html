@@ -43,11 +43,19 @@
             <option value="2">2张图片</option>
             <option value="3">3张图片</option>
             <option value="4">4张图片</option>
+            <option value="5">5张图片</option>
         </select>
     </div>
 
     <!-- AUTO 模式统计面板 -->
     <div class="input-group auto-stats-panel" id="autoPanelGenerate" style="display: none;">
+        <div class="auto-settings" style="margin-bottom: 12px; padding: 10px; background: rgba(0,0,0,0.03); border-radius: 6px;">
+            <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:0.9rem;">
+                <span>并发数量: <b id="autoConcurrencyValueGenerate">1</b></span>
+                <span id="autoLimitHintGenerate" style="font-size:0.85em; color:#d32f2f; font-weight:600;"></span>
+            </label>
+            <input type="range" id="autoConcurrencySliderGenerate" min="1" max="5" value="1" step="1" style="width:100%;">
+        </div>
         <div class="auto-stats-content">
             <div class="stats-text">
                 执行: <span class="stat-total">0</span> |

@@ -35,10 +35,10 @@ def _validate_image_count(image_count: int) -> None:
         image_count: 需要生成的图片数量
 
     Raises:
-        ValueError: 如果数量不在1-4之间
+        ValueError: 如果数量不在1-5之间
     """
-    if image_count < 1 or image_count > 4:
-        raise ValueError('图像数量必须在1-4之间')
+    if image_count < 1 or image_count > 5:
+        raise ValueError('图像数量必须在1-5之间')
 
 
 def _validate_instruction(instruction: str) -> None:

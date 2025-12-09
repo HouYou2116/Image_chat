@@ -10,6 +10,51 @@ import * as API from './modules/api.js';
 import * as UI from './modules/ui.js';
 import * as Utils from './modules/utils.js';
 
+// === AUTO 模式并发规则配置 ===
+/**
+ * AUTO 模式并发规则配置
+ * 基于 Provider 速率限制文档 (供应商开发文档/Providers Rate limits.md)
+ */
+const CONCURRENCY_RULES = {
+    // Google Provider
+    'google/gemini-2.5-flash-image': {
+        recommended: 4,    // 推荐并发数（默认值）
+        max: 5,            // 最大并发数（滑块上限）
+        delay: 1000,       // 基础延迟（毫秒）- 500 RPM = 120ms 理论值，保守设置 1000ms
+        hint: '推荐: 4 张 (Flash 高速模型)'
+    },
+    'google/gemini-3-pro-image-preview': {
+        recommended: 1,
+        max: 1,            // 严格限制为 1（20 RPM = 每 3 秒）
+        delay: 3500,       // 3.5 秒延迟（20 RPM）
+        hint: '限制: 1 张 (Pro 模型速率严格)'
+    },
+
+    // TuZi Provider - 无速率限制
+    'tuzi': {
+        recommended: 5,
+        max: 5,
+        delay: 500,        // 无限制，保守延迟
+        hint: '推荐: 5 张 (无速率限制)'
+    },
+
+    // OpenRouter Provider - 无固定限制，建议保守
+    'openrouter': {
+        recommended: 3,
+        max: 4,
+        delay: 1000,       // 默认 1 秒，429 时需指数退避
+        hint: '推荐: 3 张 (动态限制)'
+    },
+
+    // 默认规则（未匹配到具体模型时使用）
+    'default': {
+        recommended: 2,
+        max: 3,
+        delay: 1500,
+        hint: '推荐: 2 张 (默认设置)'
+    }
+};
+
 // === 挂载到 window（为了让动态生成的 HTML 中的事件委托能访问） ===
 window.downloadSingleImage = Utils.downloadSingleImage;
 
@@ -380,6 +425,49 @@ async function runTaskOnce(mode, options = {}) {
 }
 
 /**
+ * 更新 AUTO 模式并发设置 UI
+ * @param {string} mode - 'edit' 或 'generate'
+ */
+function updateAutoSettingsUI(mode) {
+    // 1. 构造对应模式的 DOM ID
+    const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);  // 'Edit' 或 'Generate'
+    const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
+    const valueEl = document.getElementById(`autoConcurrencyValue${suffix}`);
+    const hintEl = document.getElementById(`autoLimitHint${suffix}`);
+
+    if (!sliderEl || !valueEl || !hintEl) {
+        console.warn(`[AUTO] 未找到并发设置 UI 元素 (mode: ${mode})`);
+        return;
+    }
+
+    // 2. 获取当前选择的 Provider 和 Model
+    const provider = State.getCurrentProvider();
+    const model = mode === 'edit'
+        ? document.getElementById('modelSelector')?.value
+        : document.getElementById('modelSelectorGenerate')?.value;
+
+    // 3. 查找匹配的并发规则
+    let rule;
+    if (provider === 'google') {
+        // Google Provider - 根据具体模型匹配
+        rule = CONCURRENCY_RULES[model] || CONCURRENCY_RULES['default'];
+    } else {
+        // 其他 Provider - 根据 provider 名称匹配
+        rule = CONCURRENCY_RULES[provider] || CONCURRENCY_RULES['default'];
+    }
+
+    // 4. 更新滑块属性
+    sliderEl.max = rule.max;
+    sliderEl.value = rule.recommended;
+
+    // 5. 更新显示文本
+    valueEl.textContent = rule.recommended;
+    hintEl.textContent = rule.hint;
+
+    console.log(`[AUTO] 更新并发设置 (${mode}): ${provider}/${model} -> 推荐 ${rule.recommended}, 最大 ${rule.max}`);
+}
+
+/**
  * AUTO 模式循环执行
  * @param {string} mode - 'edit' 或 'generate'
  */
@@ -403,8 +491,18 @@ async function runAutoLoop(mode) {
 
             console.log(`[AUTO] 第 ${State.getAutoStats().total} 次请求...`);
 
-            // 执行一次任务（强制 image_count = 1，禁用流式）
-            const result = await runTaskOnce(mode, { forceImageCount: 1, useStream: false });
+            // ===== 关键修改 1: 读取滑块并发数 =====
+            const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);
+            const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
+            const imageCount = sliderEl ? parseInt(sliderEl.value) : 1;
+
+            console.log(`[AUTO] 当前并发数: ${imageCount}`);
+
+            // ===== 关键修改 2: 启用流式接口 =====
+            const result = await runTaskOnce(mode, {
+                forceImageCount: imageCount,  // 使用滑块值
+                useStream: true               // 启用流式
+            });
 
             if (result.success) {
                 // 成功：success++，渲染结果（AUTO 模式）
@@ -422,7 +520,7 @@ async function runAutoLoop(mode) {
                     State.addSessionImage(img.download_url);
                 });
 
-                console.log(`[AUTO] 第 ${State.getAutoStats().total} 次成功`);
+                console.log(`[AUTO] 第 ${State.getAutoStats().total} 次成功 (生成 ${result.images.length} 张)`);
             } else {
                 // API 返回失败（但不抛异常）
                 State.incrementAutoFail();
@@ -437,8 +535,31 @@ async function runAutoLoop(mode) {
             console.error(`[AUTO] 第 ${State.getAutoStats().total} 次异常:`, error.message);
         }
 
-        // 4. 延时防封（1 秒间隔）
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // ===== 关键修改 3: 动态延迟计算 =====
+        const provider = State.getCurrentProvider();
+        const model = mode === 'edit'
+            ? document.getElementById('modelSelector').value
+            : document.getElementById('modelSelectorGenerate').value;
+
+        // 查找匹配的并发规则
+        let rule;
+        if (provider === 'google') {
+            rule = CONCURRENCY_RULES[model] || CONCURRENCY_RULES['default'];
+        } else {
+            rule = CONCURRENCY_RULES[provider] || CONCURRENCY_RULES['default'];
+        }
+
+        // 读取当前并发数
+        const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);
+        const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
+        const imageCount = sliderEl ? parseInt(sliderEl.value) : 1;
+
+        // 计算延迟时间（基础延迟 * 并发数的调整系数）
+        // 用户选择推荐值时系数=1.0，超过推荐值时系数>1.0，低于推荐值时系数<1.0
+        const delayTime = rule.delay * Math.max(1, imageCount / rule.recommended);
+
+        console.log(`[AUTO] 等待 ${delayTime}ms 后继续...`);
+        await new Promise(resolve => setTimeout(resolve, delayTime));
     }
 
     console.log('[AUTO] 循环已停止');
@@ -487,6 +608,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     UI.updateResolutionAvailability('generate', genModelSelector.value, this.value, appConfig);
                 }
             }
+
+            // 更新 AUTO 模式并发设置
+            updateAutoSettingsUI('edit');
+            updateAutoSettingsUI('generate');
         });
     }
 
@@ -498,6 +623,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const appConfig = State.getAppConfig();
             UI.updateResolutionAvailability('edit', this.value, provider, appConfig);
             State.saveProviderModelPreference(provider, this.value);
+
+            // 更新 AUTO 模式并发设置
+            updateAutoSettingsUI('edit');
         });
     }
 
@@ -509,11 +637,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             const appConfig = State.getAppConfig();
             UI.updateResolutionAvailability('generate', this.value, provider, appConfig);
             State.saveProviderModelPreference(provider + '_generate', this.value);
+
+            // 更新 AUTO 模式并发设置
+            updateAutoSettingsUI('generate');
         });
     }
 
     // 5. 初始化温度滑块
     initTemperatureSliders();
+
+    // 6. 初始化 AUTO 模式并发滑块
+    const autoConcurrencySliderEdit = document.getElementById('autoConcurrencySliderEdit');
+    const autoConcurrencySliderGenerate = document.getElementById('autoConcurrencySliderGenerate');
+
+    // 编辑模式滑块 - 实时更新显示数字
+    if (autoConcurrencySliderEdit) {
+        autoConcurrencySliderEdit.addEventListener('input', (e) => {
+            const valueEl = document.getElementById('autoConcurrencyValueEdit');
+            if (valueEl) {
+                valueEl.textContent = e.target.value;
+            }
+        });
+    }
+
+    // 生成模式滑块 - 实时更新显示数字
+    if (autoConcurrencySliderGenerate) {
+        autoConcurrencySliderGenerate.addEventListener('input', (e) => {
+            const valueEl = document.getElementById('autoConcurrencyValueGenerate');
+            if (valueEl) {
+                valueEl.textContent = e.target.value;
+            }
+        });
+    }
+
+    // 初始化时调用一次，设置默认值
+    try {
+        updateAutoSettingsUI('edit');
+        updateAutoSettingsUI('generate');
+    } catch (error) {
+        console.error('[Init] AUTO 设置初始化失败:', error);
+        // 失败不影响后续事件绑定
+    }
 
     // === 事件绑定 ===
 
