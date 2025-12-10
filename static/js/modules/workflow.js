@@ -7,6 +7,7 @@ import * as State from './state.js';
 import * as API from './api.js';
 import * as UI from './ui.js';
 import { getConcurrencyRule } from './config.js';
+import * as DOM from './ui/dom_map.js';
 
 // 模块内部状态（用于循环控制）
 let autoLoopController = {
@@ -214,8 +215,8 @@ export async function startAutoLoop(mode) {
         // ===== 关键 3: 动态延迟计算 =====
         const provider = State.getCurrentProvider();
         const modelValue = mode === 'edit'
-            ? document.getElementById('modelSelector')?.value
-            : document.getElementById('generateModelSelector')?.value;
+            ? DOM.getElementById(DOM.EDIT.MODEL_SELECT)?.value
+            : DOM.getElementById(DOM.GENERATE.MODEL_SELECT)?.value;
 
         if (!modelValue) {
             console.error('[Workflow] 无法读取当前模型，停止循环');
@@ -281,9 +282,9 @@ export function refreshAutoConcurrencyUI(mode) {
         const provider = State.getCurrentProvider();
 
         const modelSelectorId = mode === 'edit'
-            ? 'modelSelector'
-            : 'generateModelSelector';
-        const modelSelector = document.getElementById(modelSelectorId);
+            ? DOM.EDIT.MODEL_SELECT
+            : DOM.GENERATE.MODEL_SELECT;
+        const modelSelector = DOM.getElementById(modelSelectorId);
         const model = modelSelector?.value;
 
         if (!model) {
@@ -313,8 +314,8 @@ export function refreshAutoConcurrencyUI(mode) {
 export function refreshAllAutoConcurrencyUI() {
     try {
         const provider = State.getCurrentProvider();
-        const editModel = document.getElementById('modelSelector')?.value;
-        const genModel = document.getElementById('generateModelSelector')?.value;
+        const editModel = DOM.getElementById(DOM.EDIT.MODEL_SELECT)?.value;
+        const genModel = DOM.getElementById(DOM.GENERATE.MODEL_SELECT)?.value;
 
         if (editModel) {
             const editRule = getConcurrencyRule(provider, editModel);

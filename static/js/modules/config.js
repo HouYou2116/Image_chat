@@ -1,4 +1,9 @@
 // ==========================================
+// 依赖导入 (Imports)
+// ==========================================
+import * as DOM from './ui/dom_map.js';
+
+// ==========================================
 // 配置管理模块 (Configuration Module)
 // ==========================================
 // 职责: 从后端加载配置，初始化 Google 图像选项
@@ -92,28 +97,28 @@ export function initGoogleImageOptions(appConfig) {
 
     // 填充宽高比选项（编辑模式）
     populateSelectOptions(
-        document.getElementById('editAspectRatioSelector'),
+        document.getElementById(DOM.EDIT.ASPECT_RATIO_SELECT),
         options.aspect_ratios,
         true  // includeDefault
     );
 
     // 填充宽高比选项（生成模式）
     populateSelectOptions(
-        document.getElementById('generateAspectRatioSelector'),
+        document.getElementById(DOM.GENERATE.ASPECT_RATIO_SELECT),
         options.aspect_ratios,
         true
     );
 
     // 填充分辨率选项（编辑模式）
     populateSelectOptions(
-        document.getElementById('editResolutionSelector'),
+        document.getElementById(DOM.EDIT.RESOLUTION_SELECT),
         options.resolutions,
         true
     );
 
     // 填充分辨率选项（生成模式）
     populateSelectOptions(
-        document.getElementById('generateResolutionSelector'),
+        document.getElementById(DOM.GENERATE.RESOLUTION_SELECT),
         options.resolutions,
         true
     );

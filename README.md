@@ -72,12 +72,6 @@
      curl -LsSf https://astral.sh/uv/install.sh | sh
      ```
 
-2. **克隆项目**
-   ```bash
-   git clone <repository-url>
-   cd Image_chat
-   ```
-
 3. **安装依赖**
    ```bash
    uv sync

@@ -10,6 +10,7 @@ import * as API from './modules/api.js';
 import * as UI from './modules/ui.js';
 import * as Workflow from './modules/workflow.js';
 import * as Utils from './modules/utils.js';
+import * as DOM from './modules/ui/dom_map.js';
 
 // === 挂载到 window（为了让动态生成的 HTML 中的事件委托能访问） ===
 window.downloadSingleImage = Utils.downloadSingleImage;
@@ -62,8 +63,8 @@ async function initApp() {
 
     // 5. 如果需要，刷新分辨率控件状态
     if (restoredState.needsResolutionCheck) {
-        const editModelSelector = document.getElementById('modelSelector');
-        const genModelSelector = document.getElementById('generateModelSelector');
+        const editModelSelector = DOM.getElementById(DOM.EDIT.MODEL_SELECT);
+        const genModelSelector = DOM.getElementById(DOM.GENERATE.MODEL_SELECT);
 
         if (editModelSelector) {
             UI.updateResolutionAvailability('edit', editModelSelector.value, currentProvider, appConfig);
@@ -87,8 +88,8 @@ async function initApp() {
 // === 温度滑块初始化 ===
 function initTemperatureSliders() {
     // 编辑模式温度滑块
-    const temperatureSlider = document.getElementById('temperatureSlider');
-    const temperatureValue = document.getElementById('temperatureValue');
+    const temperatureSlider = DOM.getElementById(DOM.EDIT.TEMPERATURE_SLIDER);
+    const temperatureValue = DOM.getElementById(DOM.EDIT.TEMPERATURE_VALUE);
 
     if (temperatureSlider && temperatureValue) {
         temperatureSlider.addEventListener('input', function() {
@@ -97,8 +98,8 @@ function initTemperatureSliders() {
     }
 
     // 生成模式温度滑块
-    const generateTemperatureSlider = document.getElementById('generateTemperatureSlider');
-    const generateTemperatureValue = document.getElementById('generateTemperatureValue');
+    const generateTemperatureSlider = DOM.getElementById(DOM.GENERATE.TEMPERATURE_SLIDER);
+    const generateTemperatureValue = DOM.getElementById(DOM.GENERATE.TEMPERATURE_VALUE);
 
     if (generateTemperatureSlider && generateTemperatureValue) {
         generateTemperatureSlider.addEventListener('input', function() {
@@ -117,7 +118,7 @@ async function handleSaveApiKey() {
         return;
     }
 
-    const apiKeyInput = document.getElementById('apiKeyInput');
+    const apiKeyInput = DOM.getElementById(DOM.API_KEY.INPUT);
     const key = apiKeyInput.value.trim();
 
     if (!key) {
@@ -143,7 +144,7 @@ function handleDeleteApiKey() {
     const storageKey = `api_key_${currentProvider}`;
     localStorage.removeItem(storageKey);
 
-    document.getElementById('apiKeyInput').value = '';
+    DOM.getElementById(DOM.API_KEY.INPUT).value = '';
     State.setApiKey(null);
     UI.updateApiKeyStatus('API Key已清除', 'success');
 }
@@ -265,7 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initApp();
 
     // 2. Provider 选择器变化
-    const providerSelector = document.getElementById('providerSelector');
+    const providerSelector = DOM.getElementById(DOM.API_KEY.PROVIDER_SELECT);
     if (providerSelector) {
         providerSelector.addEventListener('change', function() {
             const provider = this.value;
@@ -285,8 +286,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 4. Google 专用：更新分辨率可用性
             if (provider === 'google') {
-                const editModelSelector = document.getElementById('modelSelector');
-                const genModelSelector = document.getElementById('generateModelSelector');
+                const editModelSelector = DOM.getElementById(DOM.EDIT.MODEL_SELECT);
+                const genModelSelector = DOM.getElementById(DOM.GENERATE.MODEL_SELECT);
 
                 if (editModelSelector) {
                     UI.updateResolutionAvailability('edit', editModelSelector.value, provider, appConfig);
@@ -302,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. 模型选择器变化（编辑模式）
-    const editModelSelector = document.getElementById('modelSelector');
+    const editModelSelector = DOM.getElementById(DOM.EDIT.MODEL_SELECT);
     if (editModelSelector) {
         editModelSelector.addEventListener('change', function() {
             const provider = State.getCurrentProvider();
@@ -320,7 +321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 4. 模型选择器变化（生成模式）
-    const genModelSelector = document.getElementById('generateModelSelector');
+    const genModelSelector = DOM.getElementById(DOM.GENERATE.MODEL_SELECT);
     if (genModelSelector) {
         genModelSelector.addEventListener('change', function() {
             const provider = State.getCurrentProvider();
@@ -341,13 +342,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTemperatureSliders();
 
     // 6. 初始化 AUTO 模式并发滑块
-    const autoConcurrencySliderEdit = document.getElementById('autoConcurrencySliderEdit');
-    const autoConcurrencySliderGenerate = document.getElementById('autoConcurrencySliderGenerate');
+    const autoConcurrencySliderEdit = DOM.getElementById(DOM.AUTO.CONCURRENCY_SLIDER_EDIT);
+    const autoConcurrencySliderGenerate = DOM.getElementById(DOM.AUTO.CONCURRENCY_SLIDER_GENERATE);
 
     // 编辑模式滑块 - 实时更新显示数字
     if (autoConcurrencySliderEdit) {
         autoConcurrencySliderEdit.addEventListener('input', (e) => {
-            const valueEl = document.getElementById('autoConcurrencyValueEdit');
+            const valueEl = DOM.getElementById(DOM.AUTO.CONCURRENCY_VALUE_EDIT);
             if (valueEl) {
                 valueEl.textContent = e.target.value;
             }
@@ -357,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 生成模式滑块 - 实时更新显示数字
     if (autoConcurrencySliderGenerate) {
         autoConcurrencySliderGenerate.addEventListener('input', (e) => {
-            const valueEl = document.getElementById('autoConcurrencyValueGenerate');
+            const valueEl = DOM.getElementById(DOM.AUTO.CONCURRENCY_VALUE_GENERATE);
             if (valueEl) {
                 valueEl.textContent = e.target.value;
             }
@@ -391,7 +392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelector('.js-download-all-btn')?.addEventListener('click', handleDownloadAllImages);
 
     // AUTO 模式切换
-    document.getElementById('autoModeToggle')?.addEventListener('click', () => {
+    DOM.getElementById(DOM.AUTO.TOGGLE_BUTTON)?.addEventListener('click', () => {
         const currentMode = State.getCurrentMode();
         const currentAutoState = State.isAutoEnabled();
 
@@ -421,25 +422,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // 停止 AUTO 按钮事件委托（两个面板都有stopAutoBtn）
 document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('stop-auto-btn') || e.target.id === 'stopAutoBtn') {
+    if (e.target.classList.contains('stop-auto-btn') || e.target.id === DOM.AUTO.STOP_BUTTON) {
         console.log('[Workflow] 用户点击停止按钮');
         Workflow.stopAutoLoop();  // 统一处理所有停止逻辑
     }
 });
 
 // 文件选择监听器
-document.getElementById('imageInput').addEventListener('change', function(e) {
+DOM.getElementById(DOM.EDIT.IMAGE_INPUT).addEventListener('change', function(e) {
     const files = e.target.files;
 
     if (files.length > 0) {
         State.setSelectedFile(files);
 
         // 重置编辑结果区域
-        const editedImagesDiv = document.getElementById('editedImages');
+        const editedImagesDiv = DOM.getElementById(DOM.EDIT.RESULTS_IMAGES);
         editedImagesDiv.innerHTML = '<p>编辑完成后显示</p>';
 
         // 隐藏批量下载按钮
-        const downloadEditBtn = document.getElementById('downloadEditBtn');
+        const downloadEditBtn = DOM.getElementById(DOM.EDIT.DOWNLOAD_BUTTON);
         downloadEditBtn.style.display = 'none';
 
         // 清空下载 URL 数组
@@ -452,7 +453,7 @@ document.getElementById('imageInput').addEventListener('change', function(e) {
 
 // 模态框背景点击关闭
 document.addEventListener('click', function(e) {
-    const modal = document.getElementById('imageModal');
+    const modal = DOM.getElementById(DOM.COMMON.IMAGE_MODAL);
     if (e.target === modal) {
         UI.closeImageModal();
     }
@@ -461,7 +462,7 @@ document.addEventListener('click', function(e) {
 // ESC 键关闭模态框
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        const modal = document.getElementById('imageModal');
+        const modal = DOM.getElementById(DOM.COMMON.IMAGE_MODAL);
         if (modal.style.display === 'block') {
             UI.closeImageModal();
         }
