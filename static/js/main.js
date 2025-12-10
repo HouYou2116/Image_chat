@@ -505,15 +505,19 @@ async function runAutoLoop(mode) {
             });
 
             if (result.success) {
-                // 成功：success++，渲染结果（AUTO 模式）
+                // 成功：success++
+                // 注意：渲染逻辑已在 runTaskOnce 的流式回调中完成，此处不再重复调用渲染函数
                 State.incrementAutoSuccess();
                 UI.updateAutoStatsUI(State.getAutoStats());
 
-                if (mode === 'edit') {
-                    UI.renderEditResults(result.images, true);  // isAutoMode = true
-                } else {
-                    UI.renderGenerateResults(result.images, true);  // isAutoMode = true
-                }
+                /* [已修复 Bug]：移除了重复渲染逻辑
+                 * 原因：runTaskOnce 内部的流式回调已经实时调用了 UI.render...
+                 * if (mode === 'edit') {
+                 *     UI.renderEditResults(result.images, true);
+                 * } else {
+                 *     UI.renderGenerateResults(result.images, true);
+                 * }
+                 */
 
                 // 记录下载链接到 sessionImages（可选，用于批量下载）
                 result.images.forEach(img => {
