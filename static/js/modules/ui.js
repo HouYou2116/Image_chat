@@ -1,3 +1,6 @@
+// ===== 依赖导入 =====
+import * as State from './state.js';
+
 // ========================================
 // UI 更新模块 (UI Module)
 // ========================================
@@ -581,4 +584,227 @@ export function resetGenerateResults() {
     if (generatedImages) {
         generatedImages.innerHTML = '<p>生成完成后显示</p>';
     }
+}
+
+// ==========================================
+// 任务参数获取 (Task Parameters)
+// ==========================================
+
+/**
+ * 获取任务参数（编辑或生成模式）
+ * @param {string} mode - 'edit' 或 'generate'
+ * @returns {Object} 参数对象
+ * @throws {Error} 验证失败时抛出错误
+ */
+export function getTaskParams(mode) {
+    if (mode === 'edit') {
+        // 编辑模式参数
+        const selectedFile = State.getSelectedFile();
+        const instruction = document.getElementById('instructionInput').value.trim();
+        const imageCount = document.getElementById('editCountInput').value;
+        const apiKey = State.getApiKey();
+        const provider = State.getCurrentProvider();
+        const model = document.getElementById('modelSelector').value;
+        const temperature = document.getElementById('temperatureSlider').value;
+
+        // 基本验证
+        if (!selectedFile) {
+            throw new Error('请先选择图片');
+        }
+        if (!instruction) {
+            throw new Error('请输入编辑指令');
+        }
+        if (!apiKey) {
+            throw new Error('请先设置API Key');
+        }
+
+        // 基础参数对象
+        const params = {
+            selectedFile,
+            instruction,
+            imageCount,
+            apiKey,
+            provider,
+            model,
+            temperature
+        };
+
+        // Google 专用参数
+        if (provider === 'google') {
+            const aspectRatio = document.getElementById('editAspectRatioSelector').value;
+            const resolutionSelector = document.getElementById('editResolutionSelector');
+            const resolution = resolutionSelector.value;
+            const isDisabled = resolutionSelector.disabled;
+
+            params.aspectRatio = aspectRatio || null;
+            params.resolution = (resolution && !isDisabled) ? resolution : null;
+        }
+
+        return params;
+
+    } else if (mode === 'generate') {
+        // 生成模式参数
+        const description = document.getElementById('descriptionInput').value.trim();
+        const imageCount = document.getElementById('imageCountInput').value;
+        const apiKey = State.getApiKey();
+        const provider = State.getCurrentProvider();
+        const model = document.getElementById('generateModelSelector').value;
+        const temperature = document.getElementById('generateTemperatureSlider').value;
+
+        // 基本验证
+        if (!description) {
+            throw new Error('请输入图像描述');
+        }
+        if (!apiKey) {
+            throw new Error('请先设置API Key');
+        }
+
+        // 基础参数对象
+        const params = {
+            description,
+            imageCount,
+            apiKey,
+            provider,
+            model,
+            temperature
+        };
+
+        // Google 专用参数
+        if (provider === 'google') {
+            const aspectRatio = document.getElementById('generateAspectRatioSelector').value;
+            const resolutionSelector = document.getElementById('generateResolutionSelector');
+            const resolution = resolutionSelector.value;
+            const isDisabled = resolutionSelector.disabled;
+
+            params.aspectRatio = aspectRatio || null;
+            params.resolution = (resolution && !isDisabled) ? resolution : null;
+        }
+
+        return params;
+
+    } else {
+        throw new Error(`未知的模式: ${mode}`);
+    }
+}
+
+/**
+ * 渲染文件预览（单图或多图）
+ * @param {FileList} files - 文件列表
+ */
+export function renderFilePreviews(files) {
+    const previewsDiv = document.getElementById('editPreviews');
+    const originalPreview = document.getElementById('originalPreview');
+
+    if (!files || files.length === 0) {
+        previewsDiv.innerHTML = '<p>请选择1张或多张图片进行编辑</p>';
+        originalPreview.innerHTML = '';
+        return;
+    }
+
+    if (files.length === 1) {
+        // 单图预览
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            originalPreview.innerHTML = `
+                <img src="${e.target.result}"
+                     alt="原图"
+                     class="js-clickable-image"
+                     style="cursor: pointer;">
+            `;
+            previewsDiv.innerHTML = '<p>已选择1张图片</p>';
+        };
+        reader.readAsDataURL(files[0]);
+    } else {
+        // 多图预览（竞态安全版）
+        const maxFiles = Math.min(files.length, 5);
+        let loadedCount = 0;
+        const imageHtmlArray = new Array(maxFiles);  // 预分配数组，保证顺序
+
+        previewsDiv.innerHTML = '<p style="color:#888;">正在加载预览...</p>';
+
+        for (let i = 0; i < maxFiles; i++) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                // 按索引存储，保证顺序
+                imageHtmlArray[i] = `
+                    <div class="upload-thumbnail">
+                        <img src="${e.target.result}" alt="预览">
+                    </div>
+                `;
+
+                loadedCount++;
+
+                // 所有图片加载完成后，一次性更新 DOM
+                if (loadedCount === maxFiles) {
+                    let finalHtml = `
+                        <p style="margin-bottom: 10px; color: var(--text-secondary);">
+                            已选择 ${files.length} 张图片：
+                        </p>
+                    `;
+
+                    finalHtml += '<div class="upload-gallery">';
+                    finalHtml += imageHtmlArray.join('');
+                    finalHtml += '</div>';
+
+                    if (files.length > 5) {
+                        finalHtml += `
+                            <p style="margin-top: 10px; color: var(--text-secondary);">
+                                ...等 ${files.length} 张图片
+                            </p>
+                        `;
+                    }
+
+                    previewsDiv.innerHTML = finalHtml;
+                }
+            };
+
+            reader.readAsDataURL(files[i]);
+        }
+
+        // 多图模式：清空单图预览区域
+        originalPreview.innerHTML = '<p>多图片编辑模式</p>';
+    }
+
+    console.log(`[UI] 已渲染 ${files.length} 个文件预览`);
+}
+
+/**
+ * 更新 AUTO 模式并发设置 UI
+ * @param {string} mode - 'edit' 或 'generate'
+ * @param {Object} rule - 并发规则对象 { max, recommended, hint, delay }
+ */
+export function updateAutoConcurrencySettings(mode, rule) {
+    const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);  // 'Edit' 或 'Generate'
+
+    const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
+    const valueEl = document.getElementById(`autoConcurrencyValue${suffix}`);
+    const hintEl = document.getElementById(`autoLimitHint${suffix}`);
+
+    if (!sliderEl || !valueEl || !hintEl) {
+        console.warn(`[UI] updateAutoConcurrencySettings: 未找到并发设置 UI 元素 (mode: ${mode})`);
+        return;
+    }
+
+    // 更新滑块属性
+    sliderEl.max = rule.max;
+    sliderEl.value = rule.recommended;
+
+    // 更新显示文本
+    valueEl.textContent = rule.recommended;
+    hintEl.textContent = rule.hint;
+
+    console.log(`[UI] 并发设置已更新 (${mode}): 推荐 ${rule.recommended}, 最大 ${rule.max}`);
+}
+
+/**
+ * 获取 AUTO 模式并发数量
+ * @param {string} mode - 'edit' 或 'generate'
+ * @returns {number} 并发数量，默认 1
+ */
+export function getAutoConcurrencyValue(mode) {
+    const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);
+    const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
+
+    return sliderEl ? parseInt(sliderEl.value) : 1;
 }

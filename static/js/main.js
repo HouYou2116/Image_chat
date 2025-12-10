@@ -6,54 +6,11 @@
 // === 导入所有模块 ===
 import * as State from './modules/state.js';
 import * as Config from './modules/config.js';
+import { getConcurrencyRule } from './modules/config.js';
 import * as API from './modules/api.js';
 import * as UI from './modules/ui.js';
+import * as Workflow from './modules/workflow.js';
 import * as Utils from './modules/utils.js';
-
-// === AUTO 模式并发规则配置 ===
-/**
- * AUTO 模式并发规则配置
- * 基于 Provider 速率限制文档 (供应商开发文档/Providers Rate limits.md)
- */
-const CONCURRENCY_RULES = {
-    // Google Provider
-    'google/gemini-2.5-flash-image': {
-        recommended: 4,    // 推荐并发数（默认值）
-        max: 5,            // 最大并发数（滑块上限）
-        delay: 1000,       // 基础延迟（毫秒）- 500 RPM = 120ms 理论值，保守设置 1000ms
-        hint: '推荐: 4 张 (Flash 高速模型)'
-    },
-    'google/gemini-3-pro-image-preview': {
-        recommended: 1,
-        max: 1,            // 严格限制为 1（20 RPM = 每 3 秒）
-        delay: 3500,       // 3.5 秒延迟（20 RPM）
-        hint: '限制: 1 张 (Pro 模型速率严格)'
-    },
-
-    // TuZi Provider - 无速率限制
-    'tuzi': {
-        recommended: 5,
-        max: 5,
-        delay: 500,        // 无限制，保守延迟
-        hint: '推荐: 5 张 (无速率限制)'
-    },
-
-    // OpenRouter Provider - 无固定限制，建议保守
-    'openrouter': {
-        recommended: 3,
-        max: 4,
-        delay: 1000,       // 默认 1 秒，429 时需指数退避
-        hint: '推荐: 3 张 (动态限制)'
-    },
-
-    // 默认规则（未匹配到具体模型时使用）
-    'default': {
-        recommended: 2,
-        max: 3,
-        delay: 1500,
-        hint: '推荐: 2 张 (默认设置)'
-    }
-};
 
 // === 挂载到 window（为了让动态生成的 HTML 中的事件委托能访问） ===
 window.downloadSingleImage = Utils.downloadSingleImage;
@@ -223,7 +180,7 @@ async function handleEditImage() {
     // 检查是否为 AUTO 模式
     if (State.isAutoEnabled()) {
         // AUTO 模式：启动循环
-        await runAutoLoop('edit');
+        await Workflow.startAutoLoop('edit');
         return;
     }
 
@@ -233,7 +190,7 @@ async function handleEditImage() {
         UI.hideError();
         UI.clearEditResults();
 
-        const result = await runTaskOnce('edit', { useStream: true });
+        const result = await Workflow.runTaskOnce('edit', { useStream: true });
 
         if (result.success) {
             console.log(`[Edit] 流式接收完成，共 ${result.totalReceived} 张图片`);
@@ -260,7 +217,7 @@ async function handleGenerateImage() {
     // 检查是否为 AUTO 模式
     if (State.isAutoEnabled()) {
         // AUTO 模式：启动循环
-        await runAutoLoop('generate');
+        await Workflow.startAutoLoop('generate');
         return;
     }
 
@@ -270,7 +227,7 @@ async function handleGenerateImage() {
         UI.hideError();
         UI.clearGenerateResults();
 
-        const result = await runTaskOnce('generate', { useStream: true });
+        const result = await Workflow.runTaskOnce('generate', { useStream: true });
 
         if (result.success) {
             console.log(`[Generate] 流式接收完成，共 ${result.totalReceived} 张图片`);
@@ -293,281 +250,10 @@ async function handleGenerateImage() {
 }
 
 // === AUTO 模式核心函数 ===
-
-/**
- * 执行一次图片处理任务（编辑或生成）
- * @param {string} mode - 'edit' 或 'generate'
- * @param {Object} options - 可选参数 { forceImageCount: 1 }
- * @returns {Promise<Object>} { success: boolean, images?: Array, error?: string }
- */
-async function runTaskOnce(mode, options = {}) {
-    const apiKey = State.getApiKey();
-    const useStream = options.useStream !== false;  // 默认启用流式
-
-    if (mode === 'edit') {
-        // 编辑模式验证
-        const selectedFile = State.getSelectedFile();
-        const instruction = document.getElementById('instructionInput').value.trim();
-
-        if (!selectedFile) {
-            throw new Error('请先选择图片');
-        }
-        if (!instruction) {
-            throw new Error('请输入编辑指令');
-        }
-        if (!apiKey) {
-            throw new Error('请先设置API Key');
-        }
-
-        // 准备 FormData
-        const formData = new FormData();
-        if (selectedFile instanceof FileList) {
-            for (let i = 0; i < selectedFile.length; i++) {
-                formData.append('image', selectedFile[i]);
-            }
-        } else {
-            formData.append('image', selectedFile);
-        }
-
-        formData.append('instruction', instruction);
-        // AUTO 模式强制设为 1，否则使用表单值
-        const imageCount = options.forceImageCount || document.getElementById('editCountInput').value;
-        formData.append('image_count', imageCount);
-        formData.append('api_key', apiKey);
-        formData.append('provider', State.getCurrentProvider());
-        formData.append('model', document.getElementById('modelSelector').value);
-        formData.append('temperature', document.getElementById('temperatureSlider').value);
-
-        // Google 专用参数
-        if (State.getCurrentProvider() === 'google') {
-            const aspectRatio = document.getElementById('editAspectRatioSelector').value;
-            const resolution = document.getElementById('editResolutionSelector').value;
-            if (aspectRatio) formData.append('aspect_ratio', aspectRatio);
-            if (resolution && !document.getElementById('editResolutionSelector').disabled) {
-                formData.append('resolution', resolution);
-            }
-        }
-
-        // 调用 API
-        if (useStream) {
-            // 流式模式
-            const receivedImages = [];
-            const result = await API.editImageStream(formData, (image) => {
-                // 每收到一张图片，立即追加渲染
-                receivedImages.push(image);
-                UI.renderEditResults([image], true);  // isAutoMode = true（追加模式）
-            });
-            return {
-                success: result.success,
-                images: receivedImages,
-                totalReceived: result.totalReceived,
-                error: result.error
-            };
-        } else {
-            // 非流式模式（向后兼容）
-            return await API.editImage(formData);
-        }
-
-    } else if (mode === 'generate') {
-        // 生成模式验证
-        const description = document.getElementById('descriptionInput').value.trim();
-
-        if (!description) {
-            throw new Error('请输入图像描述');
-        }
-        if (!apiKey) {
-            throw new Error('请先设置API Key');
-        }
-
-        // 准备 FormData
-        const formData = new FormData();
-        formData.append('description', description);
-        // AUTO 模式强制设为 1，否则使用表单值
-        const imageCount = options.forceImageCount || document.getElementById('imageCountInput').value;
-        formData.append('image_count', imageCount);
-        formData.append('api_key', apiKey);
-        formData.append('provider', State.getCurrentProvider());
-        formData.append('model', document.getElementById('generateModelSelector').value);
-        formData.append('temperature', document.getElementById('generateTemperatureSlider').value);
-
-        // Google 专用参数
-        if (State.getCurrentProvider() === 'google') {
-            const aspectRatio = document.getElementById('generateAspectRatioSelector').value;
-            const resolution = document.getElementById('generateResolutionSelector').value;
-            if (aspectRatio) formData.append('aspect_ratio', aspectRatio);
-            if (resolution && !document.getElementById('generateResolutionSelector').disabled) {
-                formData.append('resolution', resolution);
-            }
-        }
-
-        // 调用 API
-        if (useStream) {
-            // 流式模式
-            const receivedImages = [];
-            const result = await API.generateImageStream(formData, (image) => {
-                // 每收到一张图片，立即追加渲染
-                receivedImages.push(image);
-                UI.renderGenerateResults([image], true);  // isAutoMode = true（追加模式）
-            });
-            return {
-                success: result.success,
-                images: receivedImages,
-                totalReceived: result.totalReceived,
-                error: result.error
-            };
-        } else {
-            // 非流式模式（向后兼容）
-            return await API.generateImage(formData);
-        }
-    }
-
-    throw new Error('无效的模式: ' + mode);
-}
-
-/**
- * 更新 AUTO 模式并发设置 UI
- * @param {string} mode - 'edit' 或 'generate'
- */
-function updateAutoSettingsUI(mode) {
-    // 1. 构造对应模式的 DOM ID
-    const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);  // 'Edit' 或 'Generate'
-    const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
-    const valueEl = document.getElementById(`autoConcurrencyValue${suffix}`);
-    const hintEl = document.getElementById(`autoLimitHint${suffix}`);
-
-    if (!sliderEl || !valueEl || !hintEl) {
-        console.warn(`[AUTO] 未找到并发设置 UI 元素 (mode: ${mode})`);
-        return;
-    }
-
-    // 2. 获取当前选择的 Provider 和 Model
-    const provider = State.getCurrentProvider();
-    const model = mode === 'edit'
-        ? document.getElementById('modelSelector')?.value
-        : document.getElementById('modelSelectorGenerate')?.value;
-
-    // 3. 查找匹配的并发规则
-    let rule;
-    if (provider === 'google') {
-        // Google Provider - 根据具体模型匹配
-        rule = CONCURRENCY_RULES[model] || CONCURRENCY_RULES['default'];
-    } else {
-        // 其他 Provider - 根据 provider 名称匹配
-        rule = CONCURRENCY_RULES[provider] || CONCURRENCY_RULES['default'];
-    }
-
-    // 4. 更新滑块属性
-    sliderEl.max = rule.max;
-    sliderEl.value = rule.recommended;
-
-    // 5. 更新显示文本
-    valueEl.textContent = rule.recommended;
-    hintEl.textContent = rule.hint;
-
-    console.log(`[AUTO] 更新并发设置 (${mode}): ${provider}/${model} -> 推荐 ${rule.recommended}, 最大 ${rule.max}`);
-}
-
-/**
- * AUTO 模式循环执行
- * @param {string} mode - 'edit' 或 'generate'
- */
-async function runAutoLoop(mode) {
-    console.log(`[AUTO] 开始循环 (${mode} 模式)`);
-
-    // 1. 初始化状态
-    State.setAutoRunning(true);
-    State.resetAutoStats();
-
-    // 2. 更新 UI：显示统计面板
-    UI.updateAutoStatsUI(State.getAutoStats());
-
-    // 3. 主循环
-    while (State.isAutoRunning()) {
-        UI.hideError();
-        try {
-            // 更新统计：total++
-            State.incrementAutoTotal();
-            UI.updateAutoStatsUI(State.getAutoStats());
-
-            console.log(`[AUTO] 第 ${State.getAutoStats().total} 次请求...`);
-
-            // ===== 关键修改 1: 读取滑块并发数 =====
-            const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);
-            const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
-            const imageCount = sliderEl ? parseInt(sliderEl.value) : 1;
-
-            console.log(`[AUTO] 当前并发数: ${imageCount}`);
-
-            // ===== 关键修改 2: 启用流式接口 =====
-            const result = await runTaskOnce(mode, {
-                forceImageCount: imageCount,  // 使用滑块值
-                useStream: true               // 启用流式
-            });
-
-            if (result.success) {
-                // 成功：success++
-                // 注意：渲染逻辑已在 runTaskOnce 的流式回调中完成，此处不再重复调用渲染函数
-                State.incrementAutoSuccess();
-                UI.updateAutoStatsUI(State.getAutoStats());
-
-                /* [已修复 Bug]：移除了重复渲染逻辑
-                 * 原因：runTaskOnce 内部的流式回调已经实时调用了 UI.render...
-                 * if (mode === 'edit') {
-                 *     UI.renderEditResults(result.images, true);
-                 * } else {
-                 *     UI.renderGenerateResults(result.images, true);
-                 * }
-                 */
-
-                // 记录下载链接到 sessionImages（可选，用于批量下载）
-                result.images.forEach(img => {
-                    State.addSessionImage(img.download_url);
-                });
-
-                console.log(`[AUTO] 第 ${State.getAutoStats().total} 次成功 (生成 ${result.images.length} 张)`);
-            } else {
-                // API 返回失败（但不抛异常）
-                State.incrementAutoFail();
-                UI.updateAutoStatsUI(State.getAutoStats());
-                console.warn(`[AUTO] 第 ${State.getAutoStats().total} 次失败: ${result.error}`);
-            }
-
-        } catch (error) {
-            // 捕获异常（验证错误、网络错误等），记录失败但不中断循环
-            State.incrementAutoFail();
-            UI.updateAutoStatsUI(State.getAutoStats());
-            console.error(`[AUTO] 第 ${State.getAutoStats().total} 次异常:`, error.message);
-        }
-
-        // ===== 关键修改 3: 动态延迟计算 =====
-        const provider = State.getCurrentProvider();
-        const model = mode === 'edit'
-            ? document.getElementById('modelSelector').value
-            : document.getElementById('modelSelectorGenerate').value;
-
-        // 查找匹配的并发规则
-        let rule;
-        if (provider === 'google') {
-            rule = CONCURRENCY_RULES[model] || CONCURRENCY_RULES['default'];
-        } else {
-            rule = CONCURRENCY_RULES[provider] || CONCURRENCY_RULES['default'];
-        }
-
-        // 读取当前并发数
-        const suffix = mode.charAt(0).toUpperCase() + mode.slice(1);
-        const sliderEl = document.getElementById(`autoConcurrencySlider${suffix}`);
-        const imageCount = sliderEl ? parseInt(sliderEl.value) : 1;
-
-        // 计算延迟时间（基础延迟 * 并发数的调整系数）
-        // 用户选择推荐值时系数=1.0，超过推荐值时系数>1.0，低于推荐值时系数<1.0
-        const delayTime = rule.delay * Math.max(1, imageCount / rule.recommended);
-
-        console.log(`[AUTO] 等待 ${delayTime}ms 后继续...`);
-        await new Promise(resolve => setTimeout(resolve, delayTime));
-    }
-
-    console.log('[AUTO] 循环已停止');
-}
+// 注意：核心业务逻辑已迁移到 modules/workflow.js
+// - runTaskOnce() → Workflow.runTaskOnce()
+// - runAutoLoop() → Workflow.startAutoLoop()
+// - stopAutoLoop() → Workflow.stopAutoLoop()
 
 // 批量下载
 function handleDownloadEditImages() {
@@ -614,8 +300,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // 更新 AUTO 模式并发设置
-            updateAutoSettingsUI('edit');
-            updateAutoSettingsUI('generate');
+            const editModel = document.getElementById('modelSelector')?.value;
+            const genModel = document.getElementById('generateModelSelector')?.value;
+            const editRule = getConcurrencyRule(this.value, editModel);
+            const genRule = getConcurrencyRule(this.value, genModel);
+            UI.updateAutoConcurrencySettings('edit', editRule);
+            UI.updateAutoConcurrencySettings('generate', genRule);
         });
     }
 
@@ -629,7 +319,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             State.saveProviderModelPreference(provider, this.value);
 
             // 更新 AUTO 模式并发设置
-            updateAutoSettingsUI('edit');
+            const rule = getConcurrencyRule(provider, this.value);
+            UI.updateAutoConcurrencySettings('edit', rule);
         });
     }
 
@@ -643,7 +334,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             State.saveProviderModelPreference(provider + '_generate', this.value);
 
             // 更新 AUTO 模式并发设置
-            updateAutoSettingsUI('generate');
+            const rule = getConcurrencyRule(provider, this.value);
+            UI.updateAutoConcurrencySettings('generate', rule);
         });
     }
 
@@ -676,8 +368,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 初始化时调用一次，设置默认值
     try {
-        updateAutoSettingsUI('edit');
-        updateAutoSettingsUI('generate');
+        const provider = State.getCurrentProvider();
+        const editModel = document.getElementById('modelSelector')?.value;
+        const genModel = document.getElementById('generateModelSelector')?.value;
+
+        const editRule = getConcurrencyRule(provider, editModel);
+        const genRule = getConcurrencyRule(provider, genModel);
+
+        UI.updateAutoConcurrencySettings('edit', editRule);
+        UI.updateAutoConcurrencySettings('generate', genRule);
     } catch (error) {
         console.error('[Init] AUTO 设置初始化失败:', error);
         // 失败不影响后续事件绑定
@@ -733,23 +432,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 停止 AUTO 按钮事件委托（两个面板都有stopAutoBtn）
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('stop-auto-btn') || e.target.id === 'stopAutoBtn') {
-        console.log('[AUTO] 用户点击停止按钮');
-
-        // 1. 立即切断所有状态并重置
-        State.resetAutoState(); // 替换原有的 setAutoEnabled/Running/Mode
-        UI.updateAutoStatsUI(State.getAutoStats()); // 新增：立即清零 UI
-
-        // 2. 立即还原 UI（隐藏统计面板，显示普通控件）
-        UI.toggleAutoModeUI(false);
-
-        console.log('[AUTO] 已通过停止按钮关闭');
+        console.log('[Workflow] 用户点击停止按钮');
+        Workflow.stopAutoLoop();  // 统一处理所有停止逻辑
     }
 });
 
 // 文件选择监听器
 document.getElementById('imageInput').addEventListener('change', function(e) {
     const files = e.target.files;
-    const previewsDiv = document.getElementById('editPreviews');
 
     if (files.length > 0) {
         State.setSelectedFile(files);
@@ -765,62 +455,8 @@ document.getElementById('imageInput').addEventListener('change', function(e) {
         // 清空下载 URL 数组
         State.setEditDownloadUrls([]);
 
-        // 清空预览
-        previewsDiv.innerHTML = '';
-
-        // 显示多图预览
-        if (files.length === 1) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const originalPreview = document.getElementById('originalPreview');
-                const originalImageSrc = e.target.result;
-                originalPreview.innerHTML = `<img src="${originalImageSrc}" alt="原图" class="js-clickable-image" style="cursor: pointer;">`;
-                previewsDiv.innerHTML = '<p>已选择1张图片</p>';
-            };
-            reader.readAsDataURL(files[0]);
-        } else {
-            // === 多图片预览 (修复竞态问题版) ===
-
-            // 1. 准备容器和变量
-            const maxFiles = Math.min(files.length, 5);
-            let loadedCount = 0; // 计数器：记录已加载完成的图片数
-            const imageHtmlArray = new Array(maxFiles); // 数组：确保图片按原本顺序排列
-
-            // 预先显示"正在加载预览..."，避免空白
-            previewsDiv.innerHTML = '<p style="color:#888;">正在加载预览...</p>';
-
-            for (let i = 0; i < maxFiles; i++) {
-                const reader = new FileReader();
-
-                reader.onload = function(e) {
-                    // 2. 将结果存入对应索引的数组位置 (保证顺序，无论谁先加载完)
-                    imageHtmlArray[i] = `<div class="upload-thumbnail"><img src="${e.target.result}" alt="预览"></div>`;
-
-                    // 3. 增加计数器
-                    loadedCount++;
-
-                    // 4. 只有当所有图片都加载完了，才一次性更新 DOM
-                    if (loadedCount === maxFiles) {
-                        let finalHtml = `<p style="margin-bottom: 10px; color: var(--text-secondary);">已选择 ${files.length} 张图片：</p>`;
-
-                        finalHtml += '<div class="upload-gallery">';
-                        finalHtml += imageHtmlArray.join(''); // 将数组合并为字符串
-                        finalHtml += '</div>';
-
-                        if (files.length > 5) {
-                            finalHtml += `<p style="margin-top: 10px; color: var(--text-secondary);">...等 ${files.length} 张图片</p>`;
-                        }
-
-                        previewsDiv.innerHTML = finalHtml;
-                    }
-                };
-
-                reader.readAsDataURL(files[i]);
-            }
-
-            // 清空单图预览区域
-            document.getElementById('originalPreview').innerHTML = '<p>多图片编辑模式</p>';
-        }
+        // 渲染文件预览（使用封装函数）
+        UI.renderFilePreviews(files);
     }
 });
 

@@ -174,3 +174,73 @@ export function hideConfigLoading() {
     const loadingDiv = document.getElementById('config-loading');
     if (loadingDiv) loadingDiv.remove();
 }
+
+// ==========================================
+// 并发策略配置 (Concurrency Strategy)
+// ==========================================
+
+/**
+ * 并发规则配置
+ * - Google Provider: 根据具体 model 匹配（如 'google/gemini-2.5-flash-image'）
+ * - 其他 Provider: 根据 provider 名称匹配（如 'tuzi', 'openrouter'）
+ * - 未匹配: 使用 'default' 规则
+ */
+export const CONCURRENCY_RULES = {
+    // Google Provider - 按模型区分
+    'google/gemini-2.5-flash-image': {
+        recommended: 4,    // 推荐并发数（默认值）
+        max: 5,            // 最大并发数（滑块上限）
+        delay: 1000,       // 基础延迟（毫秒）- 500 RPM = 120ms 理论值，保守设置 1000ms
+        hint: '推荐: 4 张 (Flash 高速模型)'
+    },
+    'google/gemini-3-pro-image-preview': {
+        recommended: 1,
+        max: 1,            // 严格限制为 1（20 RPM = 每 3 秒）
+        delay: 3500,       // 3.5 秒延迟（20 RPM）
+        hint: '限制: 1 张 (Pro 模型速率严格)'
+    },
+
+    // TuZi Provider - 无速率限制
+    'tuzi': {
+        recommended: 5,
+        max: 5,
+        delay: 500,        // 无限制，保守延迟
+        hint: '推荐: 5 张 (无速率限制)'
+    },
+
+    // OpenRouter Provider - 无固定限制，建议保守
+    'openrouter': {
+        recommended: 3,
+        max: 4,
+        delay: 1000,       // 默认 1 秒，429 时需指数退避
+        hint: '推荐: 3 张 (动态限制)'
+    },
+
+    // 默认规则（未匹配到具体模型时使用）
+    'default': {
+        recommended: 2,
+        max: 3,
+        delay: 1500,
+        hint: '推荐: 2 张 (默认设置)'
+    }
+};
+
+/**
+ * 获取并发规则
+ * @param {string} provider - Provider 名称 (google, tuzi, openrouter)
+ * @param {string} model - 模型标识符 (完整的 model value，如 'google/gemini-2.5-flash-image')
+ * @returns {Object} 并发规则对象 {recommended, max, delay, hint}
+ */
+export function getConcurrencyRule(provider, model) {
+    let rule;
+
+    if (provider === 'google') {
+        // Google Provider - 根据具体模型匹配
+        rule = CONCURRENCY_RULES[model] || CONCURRENCY_RULES['default'];
+    } else {
+        // 其他 Provider - 根据 provider 名称匹配
+        rule = CONCURRENCY_RULES[provider] || CONCURRENCY_RULES['default'];
+    }
+
+    return rule;
+}
