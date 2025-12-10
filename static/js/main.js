@@ -6,7 +6,6 @@
 // === 导入所有模块 ===
 import * as State from './modules/state.js';
 import * as Config from './modules/config.js';
-import { getConcurrencyRule } from './modules/config.js';
 import * as API from './modules/api.js';
 import * as UI from './modules/ui.js';
 import * as Workflow from './modules/workflow.js';
@@ -151,25 +150,19 @@ function handleDeleteApiKey() {
 
 // 模式切换
 function handleSwitchMode(mode) {
+    // 1. 更新状态
     State.setCurrentMode(mode);
 
-    // 更新 Tab 按钮状态
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
+    // 2. 调用 UI 模块切换显示
     if (mode === 'edit') {
-        document.querySelector('.js-mode-edit').classList.add('active');
-        document.getElementById('editMode').style.display = 'block';
-        document.getElementById('generateMode').style.display = 'none';
-        document.getElementById('editResults').style.display = 'grid';
-        document.getElementById('generateResults').style.display = 'none';
+        UI.switchToEditMode();
     } else {
-        document.querySelector('.js-mode-generate').classList.add('active');
-        document.getElementById('editMode').style.display = 'none';
-        document.getElementById('generateMode').style.display = 'block';
-        document.getElementById('editResults').style.display = 'none';
-        document.getElementById('generateResults').style.display = 'block';
+        UI.switchToGenerateMode();
+    }
+
+    // 3. 如果 AUTO 模式开启，同步切换 AUTO 面板
+    if (State.isAutoEnabled()) {
+        UI.toggleAutoModeUI(true, mode);
     }
 
     UI.hideError();
@@ -275,37 +268,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     const providerSelector = document.getElementById('providerSelector');
     if (providerSelector) {
         providerSelector.addEventListener('change', function() {
-            State.setCurrentProvider(this.value);
-            const appConfig = State.getAppConfig();
+            const provider = this.value;
 
-            // 加载对应服务商的 API Key
-            const storageKey = `api_key_${this.value}`;
+            // 1. 更新状态
+            State.setCurrentProvider(provider);
+
+            // 2. 更新 localStorage
+            const storageKey = `api_key_${provider}`;
             const savedApiKey = localStorage.getItem(storageKey);
             State.setApiKey(savedApiKey);
 
-            UI.updateUIForProvider(this.value, appConfig, savedApiKey);
-            UI.updateModelSelectors(this.value, appConfig, State.getProviderModelPreferences());
+            // 3. 更新 UI
+            const appConfig = State.getAppConfig();
+            UI.updateUIForProvider(provider, appConfig, savedApiKey);
+            UI.updateModelSelectors(provider, appConfig, State.getProviderModelPreferences());
 
-            // 刷新分辨率控件状态
-            if (this.value === 'google') {
+            // 4. Google 专用：更新分辨率可用性
+            if (provider === 'google') {
                 const editModelSelector = document.getElementById('modelSelector');
                 const genModelSelector = document.getElementById('generateModelSelector');
 
                 if (editModelSelector) {
-                    UI.updateResolutionAvailability('edit', editModelSelector.value, this.value, appConfig);
+                    UI.updateResolutionAvailability('edit', editModelSelector.value, provider, appConfig);
                 }
                 if (genModelSelector) {
-                    UI.updateResolutionAvailability('generate', genModelSelector.value, this.value, appConfig);
+                    UI.updateResolutionAvailability('generate', genModelSelector.value, provider, appConfig);
                 }
             }
 
-            // 更新 AUTO 模式并发设置
-            const editModel = document.getElementById('modelSelector')?.value;
-            const genModel = document.getElementById('generateModelSelector')?.value;
-            const editRule = getConcurrencyRule(this.value, editModel);
-            const genRule = getConcurrencyRule(this.value, genModel);
-            UI.updateAutoConcurrencySettings('edit', editRule);
-            UI.updateAutoConcurrencySettings('generate', genRule);
+            // 5. 统一刷新并发设置
+            Workflow.refreshAllAutoConcurrencyUI();
         });
     }
 
@@ -315,12 +307,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         editModelSelector.addEventListener('change', function() {
             const provider = State.getCurrentProvider();
             const appConfig = State.getAppConfig();
+
+            // 1. 更新分辨率可用性
             UI.updateResolutionAvailability('edit', this.value, provider, appConfig);
+
+            // 2. 保存模型偏好
             State.saveProviderModelPreference(provider, this.value);
 
-            // 更新 AUTO 模式并发设置
-            const rule = getConcurrencyRule(provider, this.value);
-            UI.updateAutoConcurrencySettings('edit', rule);
+            // 3. 刷新编辑模式的并发设置
+            Workflow.refreshAutoConcurrencyUI('edit');
         });
     }
 
@@ -330,12 +325,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         genModelSelector.addEventListener('change', function() {
             const provider = State.getCurrentProvider();
             const appConfig = State.getAppConfig();
+
+            // 1. 更新分辨率可用性
             UI.updateResolutionAvailability('generate', this.value, provider, appConfig);
+
+            // 2. 保存模型偏好
             State.saveProviderModelPreference(provider + '_generate', this.value);
 
-            // 更新 AUTO 模式并发设置
-            const rule = getConcurrencyRule(provider, this.value);
-            UI.updateAutoConcurrencySettings('generate', rule);
+            // 3. 刷新生成模式的并发设置
+            Workflow.refreshAutoConcurrencyUI('generate');
         });
     }
 
@@ -368,15 +366,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 初始化时调用一次，设置默认值
     try {
-        const provider = State.getCurrentProvider();
-        const editModel = document.getElementById('modelSelector')?.value;
-        const genModel = document.getElementById('generateModelSelector')?.value;
-
-        const editRule = getConcurrencyRule(provider, editModel);
-        const genRule = getConcurrencyRule(provider, genModel);
-
-        UI.updateAutoConcurrencySettings('edit', editRule);
-        UI.updateAutoConcurrencySettings('generate', genRule);
+        Workflow.refreshAllAutoConcurrencyUI();
     } catch (error) {
         console.error('[Init] AUTO 设置初始化失败:', error);
         // 失败不影响后续事件绑定

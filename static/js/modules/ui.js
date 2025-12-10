@@ -808,3 +808,55 @@ export function getAutoConcurrencyValue(mode) {
 
     return sliderEl ? parseInt(sliderEl.value) : 1;
 }
+
+// ==========================================
+// 模式切换函数 (Mode Switching)
+// ==========================================
+
+/**
+ * 切换到编辑模式
+ * 显示编辑面板，隐藏生成面板
+ */
+export function switchToEditMode() {
+    // 更新模式按钮状态
+    document.querySelector('.js-mode-edit')?.classList.add('active');
+    document.querySelector('.js-mode-generate')?.classList.remove('active');
+
+    // 显示/隐藏面板
+    const editMode = document.getElementById('editMode');
+    const generateMode = document.getElementById('generateMode');
+    if (editMode) editMode.style.display = 'block';
+    if (generateMode) generateMode.style.display = 'none';
+
+    // 显示/隐藏结果区域
+    const editResults = document.getElementById('editResults');
+    const generateResults = document.getElementById('generateResults');
+    if (editResults) editResults.style.display = 'grid';
+    if (generateResults) generateResults.style.display = 'none';
+
+    console.log('[UI] 已切换到编辑模式');
+}
+
+/**
+ * 切换到生成模式
+ * 显示生成面板，隐藏编辑面板
+ */
+export function switchToGenerateMode() {
+    // 更新模式按钮状态
+    document.querySelector('.js-mode-edit')?.classList.remove('active');
+    document.querySelector('.js-mode-generate')?.classList.add('active');
+
+    // 显示/隐藏面板
+    const editMode = document.getElementById('editMode');
+    const generateMode = document.getElementById('generateMode');
+    if (editMode) editMode.style.display = 'none';
+    if (generateMode) generateMode.style.display = 'block';
+
+    // 显示/隐藏结果区域
+    const editResults = document.getElementById('editResults');
+    const generateResults = document.getElementById('generateResults');
+    if (editResults) editResults.style.display = 'none';
+    if (generateResults) generateResults.style.display = 'block';
+
+    console.log('[UI] 已切换到生成模式');
+}

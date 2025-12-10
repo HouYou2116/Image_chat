@@ -271,7 +271,7 @@ export function stopAutoLoop() {
 }
 
 /**
- * 刷新 AUTO 模式并发 UI
+ * 刷新 AUTO 模式并发 UI（单模式版）
  * 当服务商或模型变更时，调用此函数更新并发滑块规则
  * @param {string} mode - 'edit' 或 'generate'
  */
@@ -301,6 +301,34 @@ export function refreshAutoConcurrencyUI(mode) {
 
     } catch (error) {
         console.error(`[Workflow] 刷新并发 UI 失败:`, error);
+        // 失败不中断流程
+    }
+}
+
+/**
+ * 刷新 AUTO 模式并发 UI（批量版）
+ * 同时更新编辑和生成两种模式的并发设置
+ * 用于：初始化、Provider 切换时
+ */
+export function refreshAllAutoConcurrencyUI() {
+    try {
+        const provider = State.getCurrentProvider();
+        const editModel = document.getElementById('modelSelector')?.value;
+        const genModel = document.getElementById('generateModelSelector')?.value;
+
+        if (editModel) {
+            const editRule = getConcurrencyRule(provider, editModel);
+            UI.updateAutoConcurrencySettings('edit', editRule);
+        }
+
+        if (genModel) {
+            const genRule = getConcurrencyRule(provider, genModel);
+            UI.updateAutoConcurrencySettings('generate', genRule);
+        }
+
+        console.log('[Workflow] 并发 UI 批量刷新完成');
+    } catch (error) {
+        console.error('[Workflow] 批量刷新并发 UI 失败:', error);
         // 失败不中断流程
     }
 }
