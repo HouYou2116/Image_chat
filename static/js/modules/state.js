@@ -289,3 +289,24 @@ export function saveProviderModelPreference(provider, model) {
     providerModelPreferences[provider] = model;
     localStorage.setItem('provider_model_preferences', JSON.stringify(providerModelPreferences));
 }
+
+/**
+ * 持久化保存 API Key
+ * @param {string} provider - 服务商名称
+ * @param {string} key - API Key
+ */
+export function persistApiKey(provider, key) {
+    const storageKey = `api_key_${provider}`;
+    localStorage.setItem(storageKey, key);
+    setApiKey(key); // 更新内存变量
+}
+
+/**
+ * 清除持久化的 API Key
+ * @param {string} provider - 服务商名称
+ */
+export function removePersistedApiKey(provider) {
+    const storageKey = `api_key_${provider}`;
+    localStorage.removeItem(storageKey);
+    setApiKey(null); // 更新内存变量
+}

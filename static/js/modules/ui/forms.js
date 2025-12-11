@@ -5,6 +5,7 @@
 
 import * as DOM from './dom_map.js';
 import * as State from '../state.js';
+import { updateApiKeyStatus } from './base.js';
 
 // === Provider UI 更新 ===
 
@@ -263,4 +264,88 @@ export function getTaskParams(mode) {
     } else {
         throw new Error(`未知的模式: ${mode}`);
     }
+}
+
+// ==========================================
+// API Key 业务逻辑 (API Key Business Logic)
+// ==========================================
+
+/**
+ * 处理 API Key 保存逻辑
+ * @param {Object} appConfig - 应用配置对象
+ */
+export function handleApiKeySaveLogic(appConfig) {
+    if (!appConfig) {
+        updateApiKeyStatus('配置未加载', 'error');
+        return;
+    }
+
+    const apiKeyInput = DOM.getElementById(DOM.API_KEY.INPUT);
+    const key = apiKeyInput.value.trim();
+
+    if (!key) {
+        updateApiKeyStatus('请输入 API Key', 'error');
+        return;
+    }
+
+    const currentProvider = State.getCurrentProvider();
+    const providerConfig = appConfig.providers[currentProvider];
+    const expectedPrefix = providerConfig ? providerConfig.apiKeyPrefix : '';
+
+    if (expectedPrefix && !key.startsWith(expectedPrefix)) {
+        updateApiKeyStatus(`API Key 格式不正确（应以 ${expectedPrefix} 开头）`, 'error');
+        return;
+    }
+
+    // 调用 State 模块进行持久化
+    State.persistApiKey(currentProvider, key);
+    updateApiKeyStatus('API Key已保存', 'success');
+}
+
+/**
+ * 处理 API Key 删除逻辑
+ */
+export function handleApiKeyDeleteLogic() {
+    const currentProvider = State.getCurrentProvider();
+
+    // 调用 State 模块清除数据
+    State.removePersistedApiKey(currentProvider);
+
+    // 更新 UI
+    const inputEl = DOM.getElementById(DOM.API_KEY.INPUT);
+    if(inputEl) inputEl.value = '';
+
+    updateApiKeyStatus('API Key已清除', 'success');
+}
+
+// ==========================================
+// 温度滑块初始化 (Temperature Sliders)
+// ==========================================
+
+/**
+ * 初始化温度滑块的监听器
+ * 实时更新数值显示
+ */
+export function initTemperatureSliders() {
+    // 编辑模式
+    const editSlider = DOM.getElementById(DOM.EDIT.TEMPERATURE_SLIDER);
+    const editValue = DOM.getElementById(DOM.EDIT.TEMPERATURE_VALUE);
+
+    if (editSlider && editValue) {
+        editSlider.addEventListener('input', (e) => {
+            editValue.textContent = e.target.value;
+        });
+    }
+
+    // 生成模式
+    const genSlider = DOM.getElementById(DOM.GENERATE.TEMPERATURE_SLIDER);
+    const genValue = DOM.getElementById(DOM.GENERATE.TEMPERATURE_VALUE);
+
+    if (genSlider && genValue) {
+        genSlider.addEventListener('input', (e) => {
+            genValue.textContent = e.target.value;
+        });
+    }
+
+    console.log('[UI] 温度滑块初始化完成');
 }

@@ -82,72 +82,13 @@ async function initApp() {
     // 7. 初始化自动保存
     State.initAutoSave();
 
+    // 8. 初始化 UI 组件
+    UI.initTemperatureSliders();
+
     console.log('[Init] 应用初始化完成');
 }
 
-// === 温度滑块初始化 ===
-function initTemperatureSliders() {
-    // 编辑模式温度滑块
-    const temperatureSlider = DOM.getElementById(DOM.EDIT.TEMPERATURE_SLIDER);
-    const temperatureValue = DOM.getElementById(DOM.EDIT.TEMPERATURE_VALUE);
-
-    if (temperatureSlider && temperatureValue) {
-        temperatureSlider.addEventListener('input', function() {
-            temperatureValue.textContent = this.value;
-        });
-    }
-
-    // 生成模式温度滑块
-    const generateTemperatureSlider = DOM.getElementById(DOM.GENERATE.TEMPERATURE_SLIDER);
-    const generateTemperatureValue = DOM.getElementById(DOM.GENERATE.TEMPERATURE_VALUE);
-
-    if (generateTemperatureSlider && generateTemperatureValue) {
-        generateTemperatureSlider.addEventListener('input', function() {
-            generateTemperatureValue.textContent = this.value;
-        });
-    }
-}
-
 // === 事件处理函数 ===
-
-// API Key 管理
-async function handleSaveApiKey() {
-    const appConfig = State.getAppConfig();
-    if (!appConfig) {
-        UI.updateApiKeyStatus('配置未加载', 'error');
-        return;
-    }
-
-    const apiKeyInput = DOM.getElementById(DOM.API_KEY.INPUT);
-    const key = apiKeyInput.value.trim();
-
-    if (!key) {
-        UI.updateApiKeyStatus('请输入 API Key', 'error');
-        return;
-    }
-
-    const currentProvider = State.getCurrentProvider();
-    const expectedPrefix = appConfig.providers[currentProvider].apiKeyPrefix;
-    if (!key.startsWith(expectedPrefix)) {
-        UI.updateApiKeyStatus(`API Key 格式不正确（应以 ${expectedPrefix} 开头）`, 'error');
-        return;
-    }
-
-    const storageKey = `api_key_${currentProvider}`;
-    localStorage.setItem(storageKey, key);
-    State.setApiKey(key);
-    UI.updateApiKeyStatus('API Key已保存', 'success');
-}
-
-function handleDeleteApiKey() {
-    const currentProvider = State.getCurrentProvider();
-    const storageKey = `api_key_${currentProvider}`;
-    localStorage.removeItem(storageKey);
-
-    DOM.getElementById(DOM.API_KEY.INPUT).value = '';
-    State.setApiKey(null);
-    UI.updateApiKeyStatus('API Key已清除', 'success');
-}
 
 // 模式切换
 function handleSwitchMode(mode) {
@@ -384,10 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 5. 初始化温度滑块
-    initTemperatureSliders();
-
-    // 6. 初始化 AUTO 模式并发滑块
+    // 5. 初始化 AUTO 模式并发滑块
     const autoConcurrencySliderEdit = DOM.getElementById(DOM.AUTO.CONCURRENCY_SLIDER_EDIT);
     const autoConcurrencySliderGenerate = DOM.getElementById(DOM.AUTO.CONCURRENCY_SLIDER_GENERATE);
 
@@ -422,20 +360,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === 事件绑定 ===
 
     // API Key 管理
-    document.querySelector('.js-save-api-key')?.addEventListener('click', handleSaveApiKey);
-    document.querySelector('.js-delete-api-key')?.addEventListener('click', handleDeleteApiKey);
+    document.querySelector(DOM.SELECTORS.SAVE_API_KEY)?.addEventListener('click', () => {
+        UI.handleApiKeySaveLogic(State.getAppConfig());
+    });
+    document.querySelector(DOM.SELECTORS.DELETE_API_KEY)?.addEventListener('click', UI.handleApiKeyDeleteLogic);
 
     // 模式切换
-    document.querySelector('.js-mode-edit')?.addEventListener('click', () => handleSwitchMode('edit'));
-    document.querySelector('.js-mode-generate')?.addEventListener('click', () => handleSwitchMode('generate'));
+    document.querySelector(DOM.SELECTORS.MODE_EDIT)?.addEventListener('click', () => handleSwitchMode('edit'));
+    document.querySelector(DOM.SELECTORS.MODE_GENERATE)?.addEventListener('click', () => handleSwitchMode('generate'));
 
     // 图像编辑和生成
-    document.querySelector('.js-edit-btn')?.addEventListener('click', handleEditImage);
-    document.querySelector('.js-generate-btn')?.addEventListener('click', handleGenerateImage);
+    document.querySelector(DOM.SELECTORS.EDIT_BTN)?.addEventListener('click', handleEditImage);
+    document.querySelector(DOM.SELECTORS.GENERATE_BTN)?.addEventListener('click', handleGenerateImage);
 
     // 批量下载
-    document.querySelector('.js-download-edit-btn')?.addEventListener('click', handleDownloadEditImages);
-    document.querySelector('.js-download-all-btn')?.addEventListener('click', handleDownloadAllImages);
+    document.querySelector(DOM.SELECTORS.DOWNLOAD_EDIT_BTN)?.addEventListener('click', handleDownloadEditImages);
+    document.querySelector(DOM.SELECTORS.DOWNLOAD_ALL_BTN)?.addEventListener('click', handleDownloadAllImages);
 
     // AUTO 模式切换
     DOM.getElementById(DOM.AUTO.TOGGLE_BUTTON)?.addEventListener('click', () => {
@@ -456,7 +396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // 模态框关闭
-    document.querySelector('.js-modal-close')?.addEventListener('click', UI.closeImageModal);
+    document.querySelector(DOM.SELECTORS.MODAL_CLOSE)?.addEventListener('click', UI.closeImageModal);
 
     console.log('[Init] 事件绑定完成');
 });
@@ -524,7 +464,7 @@ document.addEventListener('click', function(e) {
 
 // 单张图片下载事件委托
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('js-download-single')) {
+    if (e.target.matches(DOM.SELECTORS.DOWNLOAD_SINGLE)) {
         const url = e.target.dataset.url;
         const filename = e.target.dataset.filename;
         Utils.downloadSingleImage(url, filename);
