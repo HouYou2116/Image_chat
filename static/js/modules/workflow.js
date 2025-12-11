@@ -155,27 +155,27 @@ export async function startAutoLoop(mode) {
     while (State.isAutoRunning() && autoLoopController.isRunning) {
         UI.hideError();
 
+        // ===== 先获取并发数（用于后续统计）=====
+        const imageCount = UI.getAutoConcurrencyValue(mode);
+
         try {
-            // 更新统计：total++
-            State.incrementAutoTotal();
+            // ===== 预增加 total 统计（按并发数）=====
+            State.incrementAutoTotalBy(imageCount);
             UI.updateAutoStatsUI(State.getAutoStats());
 
             const currentTotal = State.getAutoStats().total;
-            console.log(`[Workflow] 第 ${currentTotal} 次请求开始...`);
+            console.log(`[Workflow] 当前请求 ${imageCount} 张图片 (总计: ${currentTotal})...`);
 
-            // ===== 关键 1: 动态读取并发数 =====
-            const imageCount = UI.getAutoConcurrencyValue(mode);
-            console.log(`[Workflow] 当前并发数: ${imageCount}`);
-
-            // ===== 关键 2: 调用单次任务 =====
+            // ===== 调用单次任务 =====
             const result = await runTaskOnce(mode, {
                 forceImageCount: imageCount,  // 使用滑块当前值
                 useStream: true               // 启用流式
             });
 
             if (result.success) {
-                // 成功：success++，保存下载链接
-                State.incrementAutoSuccess();
+                // ===== 根据实际生成的图片数量增加 success =====
+                const actualCount = result.images.length;
+                State.incrementAutoSuccessBy(actualCount);
                 UI.updateAutoStatsUI(State.getAutoStats());
 
                 // 保存图片下载链接到会话队列（用于批量下载）
@@ -184,25 +184,26 @@ export async function startAutoLoop(mode) {
                 });
 
                 console.log(
-                    `[Workflow] 第 ${currentTotal} 次成功 ` +
-                    `(生成 ${result.images.length} 张，总计 ${State.getAutoStats().success} 成功)`
+                    `[Workflow] 成功生成 ${actualCount} 张图片，` +
+                    `总计: ${State.getAutoStats().success} 成功 / ${State.getAutoStats().total} 执行`
                 );
             } else {
-                // API 返回失败（但不抛异常，继续循环）
-                State.incrementAutoFail();
+                // ===== API 返回失败时，按请求的数量增加 fail =====
+                State.incrementAutoFailBy(imageCount);
                 UI.updateAutoStatsUI(State.getAutoStats());
                 console.warn(
-                    `[Workflow] 第 ${currentTotal} 次失败: ${result.error} ` +
-                    `(总计 ${State.getAutoStats().fail} 失败)`
+                    `[Workflow] 请求失败 (请求了 ${imageCount} 张): ${result.error} ` +
+                    `(总计: ${State.getAutoStats().fail} 失败 / ${State.getAutoStats().total} 执行)`
                 );
             }
 
         } catch (error) {
-            // 捕获异常（验证错误、网络错误等）
-            State.incrementAutoFail();
+            // ===== 捕获异常时，按请求的数量增加 fail =====
+            State.incrementAutoFailBy(imageCount);
             UI.updateAutoStatsUI(State.getAutoStats());
             console.error(
-                `[Workflow] 第 ${State.getAutoStats().total} 次异常: ${error.message}`
+                `[Workflow] 请求异常 (请求了 ${imageCount} 张): ${error.message} ` +
+                `(总计: ${State.getAutoStats().fail} 失败 / ${State.getAutoStats().total} 执行)`
             );
 
             // 可选：重大错误时自动停止循环

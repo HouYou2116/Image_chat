@@ -171,10 +171,33 @@ function handleSwitchMode(mode) {
 
 // 图片编辑
 async function handleEditImage() {
+    // ===== 前置验证（AUTO和普通模式共用）=====
+    try {
+        // 调用验证函数（不执行实际请求）
+        UI.getTaskParams('edit');
+    } catch (error) {
+        UI.showError(error.message);  // 显示验证错误
+        return;  // 不进入后续流程
+    }
+
     // 检查是否为 AUTO 模式
     if (State.isAutoEnabled()) {
-        // AUTO 模式：启动循环
-        await Workflow.startAutoLoop('edit');
+        // ===== AUTO 模式：禁用按钮并启动循环 =====
+        const editBtn = document.getElementById(DOM.EDIT.SUBMIT_BUTTON);
+        if (editBtn) {
+            editBtn.disabled = true;
+            editBtn.textContent = '处理中...';  // 修改按钮文字
+        }
+
+        try {
+            await Workflow.startAutoLoop('edit');
+        } finally {
+            // 循环结束后恢复按钮状态
+            if (editBtn) {
+                editBtn.disabled = false;
+                editBtn.textContent = '开始编辑';
+            }
+        }
         return;
     }
 
@@ -208,10 +231,33 @@ async function handleEditImage() {
 
 // 图片生成
 async function handleGenerateImage() {
+    // ===== 前置验证（AUTO和普通模式共用）=====
+    try {
+        // 调用验证函数（不执行实际请求）
+        UI.getTaskParams('generate');
+    } catch (error) {
+        UI.showError(error.message);  // 显示验证错误
+        return;  // 不进入后续流程
+    }
+
     // 检查是否为 AUTO 模式
     if (State.isAutoEnabled()) {
-        // AUTO 模式：启动循环
-        await Workflow.startAutoLoop('generate');
+        // ===== AUTO 模式：禁用按钮并启动循环 =====
+        const generateBtn = document.getElementById(DOM.GENERATE.SUBMIT_BUTTON);
+        if (generateBtn) {
+            generateBtn.disabled = true;
+            generateBtn.textContent = '处理中...';  // 修改按钮文字
+        }
+
+        try {
+            await Workflow.startAutoLoop('generate');
+        } finally {
+            // 循环结束后恢复按钮状态
+            if (generateBtn) {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '开始生成';
+            }
+        }
         return;
     }
 
@@ -397,12 +443,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const currentAutoState = State.isAutoEnabled();
 
         if (currentAutoState) {
-            // 关闭 AUTO
-            State.resetAutoState(); // 替换原有的 setAutoEnabled/Running/Mode
-            UI.updateAutoStatsUI(State.getAutoStats()); // 新增：立即清零 UI
-
-            UI.toggleAutoModeUI(false);
-            console.log('[AUTO] 已关闭');
+            // ===== 关闭 AUTO：统一调用 stopAutoLoop() =====
+            Workflow.stopAutoLoop();  // 使用统一的停止逻辑
+            console.log('[AUTO] 已关闭（通过AUTO按钮）');
         } else {
             // 开启 AUTO
             State.setAutoEnabled(true);

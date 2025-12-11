@@ -101,6 +101,32 @@ export function incrementAutoTotal() { autoState.stats.total++; }
 export function incrementAutoSuccess() { autoState.stats.success++; }
 export function incrementAutoFail() { autoState.stats.fail++; }
 
+// === AUTO 统计数据批量更新 ===
+
+/**
+ * 批量增加 total 统计（用于按并发数计数）
+ * @param {number} count - 增加的数量
+ */
+export function incrementAutoTotalBy(count) {
+    autoState.stats.total += count;
+}
+
+/**
+ * 批量增加 success 统计（用于按实际生成图片数计数）
+ * @param {number} count - 增加的数量
+ */
+export function incrementAutoSuccessBy(count) {
+    autoState.stats.success += count;
+}
+
+/**
+ * 批量增加 fail 统计（用于按失败图片数计数）
+ * @param {number} count - 增加的数量
+ */
+export function incrementAutoFailBy(count) {
+    autoState.stats.fail += count;
+}
+
 // === AUTO 图片队列管理 ===
 
 export function addSessionImage(imageUrl) { autoState.sessionImages.push(imageUrl); }
