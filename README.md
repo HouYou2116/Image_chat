@@ -9,11 +9,12 @@
 - **图像生成**：输入文字描述，一次生成 1-5张图片
 
 ### 🌐 多服务商支持
-- **Google Gemini**：支持高级图像参数（宽高比、分辨率）
+- **Google Gemini**：支持自定义图像参数（宽高比、分辨率）
 - **OpenRouter**：多模型接入(Gemini、GPT、FLUX)
-- **兔子Tuzi**：国内中转站，访问稳定，无需代理
+- **兔子Tuzi**：国内中转站，访问稳定，无需代理。目前仅支持Gemini系列default分组与原价分组(设置API KEY权限以控制调用的是default分组还是原价分组)。
 
 ### 🤖 AUTO 自动模式
+- 点击`图像生成`按钮右侧的`AUTO`按钮即可进入AUTO模式，拉动下方滑条选择并发数量。点击`开始编辑`或`开始生成`即可开始执行任务。点击`停止AUTO` 按钮或者上方的`AUTO`按钮都可以退出AUTO模式。
 - 自动循环执行图像编辑或生成任务
 - 实时显示执行统计（总数/成功/失败）
 - 智能并发控制（根据模型自动调整）
@@ -23,10 +24,10 @@
 
 | 模型 | 推荐并发数 | 延迟时间 | 说明 |
 |------|-----------|---------|------|
-| gemini-2.5-flash-image | 4-5 | 1000ms | 快速模型，支持高并发 |
-| gemini-3-pro-image-preview | 1 | 3500ms | 高级模型，严格限制 (20 RPM) |
+| gemini-2.5-flash-image(Google) | 4-5 | 1000ms | 支持高并发 |
+| gemini-3-pro-image-preview(Google) | 1 | 3500ms | 严格限制 (20 RPM) |
 | OpenRouter 系列 | 3-4 | 1000ms | 动态速率限制 |
-| 兔子 Tuzi 系列 | 5 | 500ms | 国内稳定，无限制 |
+| 兔子 Tuzi 系列 | 5 | 500ms | 无限制 |
 
 ### ⚙️ 灵活配置
 - 环境变量自定义默认设置
@@ -274,7 +275,6 @@ Image_chat/
 ├── requirements.txt                # pip 依赖清单
 ├── .python-version                 # Python 版本指定（3.12）
 ├── README.md                       # 项目文档
-├── CLAUDE.md                       # Claude Code 项目指导
 │
 ├── routes/                         # 路由层
 │   ├── main.py                     # 主页和下载路由

@@ -173,25 +173,46 @@ class TuziProvider(ImageProvider):
             log_error('流式请求失败', str(e), f"model={model}")
             raise RuntimeError(f"API 调用失败: {str(e)}")
 
-        # 收集流式响应
+        # 收集流式响应（支持 content 和 multi_mod_content）
         full_content = ""
+        multi_mod_content = None
+
         for chunk in response:
-            if chunk.choices[0].delta.content:
-                full_content += chunk.choices[0].delta.content
+            # 检查 choices 是否为空（最后一个 usage chunk 的 choices 为空数组）
+            if not chunk.choices:
+                continue
+
+            delta = chunk.choices[0].delta
+
+            # 收集 content 字段
+            if delta.content:
+                full_content += delta.content
+
+            # 收集 multi_mod_content 字段（通常在第一个 chunk）
+            if hasattr(delta, 'multi_mod_content') and delta.multi_mod_content:
+                multi_mod_content = delta.multi_mod_content
+                log_provider_message('tuzi',
+                    f"流式响应中检测到 multi_mod_content: {len(delta.multi_mod_content)} 项")
 
         log_provider_message('tuzi',
-            f"流式响应完成: 内容长度={len(full_content)}")
+            f"流式响应完成: content长度={len(full_content)}, "
+            f"multi_mod_content={'有' if multi_mod_content else '无'}")
 
-        # 构造伪消息对象用于提取
+        # 构造伪消息对象用于提取（包含 multi_mod_content）
         class StreamMessage:
-            def __init__(self, content):
+            def __init__(self, content, multi_mod_content=None):
                 self.content = content
                 self.refusal = None
+                self._multi_mod_content = multi_mod_content
 
             def model_dump(self):
-                return {"content": self.content}
+                result = {"content": self.content}
+                if self._multi_mod_content:
+                    result["multi_mod_content"] = self._multi_mod_content
+                return result
 
-        return self._extract_image_data_from_message(StreamMessage(full_content))
+        return self._extract_image_data_from_message(
+            StreamMessage(full_content, multi_mod_content))
 
     def _extract_image_data_from_message(self, message) -> bytes:
         """
@@ -207,9 +228,42 @@ class TuziProvider(ImageProvider):
             ValueError: 内容审核拒绝
             RuntimeError: 图片提取失败
         """
-        # Step 1: Deep Search（最高优先级）
+        message_dict = message.model_dump()
+
+        # Step 0: 优先检查 multi_mod_content 字段（tuzi 非标准扩展）
+        # 某些 API Key 会返回此格式，包含 inline_data Base64 图片
+        if 'multi_mod_content' in message_dict:
+            log_provider_message('tuzi', "检测到 multi_mod_content 字段")
+            mmc = message_dict['multi_mod_content']
+
+            if isinstance(mmc, list) and len(mmc) > 0:
+                for i, item in enumerate(mmc):
+                    if isinstance(item, dict) and 'inline_data' in item:
+                        inline_data = item['inline_data']
+                        data_b64 = inline_data.get('data', '')
+                        mime_type = inline_data.get('mime_type', 'unknown')
+
+                        if data_b64:
+                            try:
+                                import base64
+                                img_bytes = base64.b64decode(data_b64)
+
+                                if self._is_valid_image(img_bytes):
+                                    log_provider_message('tuzi',
+                                        f"multi_mod_content[{i}].inline_data 提取成功: "
+                                        f"{len(img_bytes)}字节, {mime_type}")
+                                    return img_bytes
+                                else:
+                                    log_provider_message('tuzi',
+                                        f"multi_mod_content[{i}] 数据无效", "WARNING")
+
+                            except Exception as e:
+                                log_provider_message('tuzi',
+                                    f"multi_mod_content[{i}] Base64 解码失败: {e}", "WARNING")
+
+        # Step 1: Deep Search（次优先级，用于处理旧格式）
         log_provider_message('tuzi', "开始 Deep Search 递归搜索...")
-        image_bytes = self._find_image_in_payload(message.model_dump())
+        image_bytes = self._find_image_in_payload(message_dict)
         if image_bytes and self._is_valid_image(image_bytes):
             log_provider_message('tuzi', f"Deep Search 成功: {len(image_bytes)}字节")
             return image_bytes
@@ -347,14 +401,34 @@ class TuziProvider(ImageProvider):
         # 处理字符串
         elif isinstance(data, str):
             # Target 1: Markdown 图片链接（Tuzi 特色，最高优先级）
-            markdown_pattern = r'!\[.*?\]\((https?://[^\s)]+)\)'
+            # 支持两种格式：
+            # - ![alt](https://example.com/image.png)  ← Default分组
+            # - ![alt](data:image/jpeg;base64,...)     ← Gemini原价分组
+            markdown_pattern = r'!\[.*?\]\(([^)]+)\)'  # 捕获括号内所有内容
             match = re.search(markdown_pattern, data)
             if match:
-                url = match.group(1)
-                log_provider_message('tuzi', f"Deep Search: 找到 Markdown 链接: {url[:80]}")
-                image_bytes = self._download_image(url)
-                if image_bytes:
-                    return image_bytes
+                url = match.group(1).strip()  # 提取括号内容并去除空格
+
+                # 情况1：HTTP/HTTPS URL（下载）
+                if url.startswith('http://') or url.startswith('https://'):
+                    log_provider_message('tuzi', f"Deep Search: 找到 Markdown HTTP 链接: {url[:80]}")
+                    image_bytes = self._download_image(url)
+                    if image_bytes:
+                        return image_bytes
+
+                # 情况2：Data URL（Base64解码）
+                elif url.startswith('data:image'):
+                    log_provider_message('tuzi', f"Deep Search: 找到 Markdown Data URL (len={len(url)})")
+                    # 提取 base64 数据部分：data:image/jpeg;base64,<data>
+                    data_url_match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', url)
+                    if data_url_match:
+                        base64_data = data_url_match.group(1)
+                        image_bytes = self._safe_base64_decode(base64_data)
+                        if image_bytes and self._is_valid_image(image_bytes):
+                            log_provider_message('tuzi', f"Deep Search: Markdown Data URL 解码成功: {len(image_bytes)}字节")
+                            return image_bytes
+                        else:
+                            log_provider_message('tuzi', "Deep Search: Markdown Data URL 解码后验证失败", "WARNING")
 
             # Target 2: data:image 开头的 Data URL
             if data.startswith('data:image'):
