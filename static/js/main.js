@@ -11,6 +11,7 @@ import * as UI from './modules/ui.js';
 import * as Workflow from './modules/workflow.js';
 import * as Utils from './modules/utils.js';
 import * as DOM from './modules/ui/dom_map.js';
+import { bindPromptEvents } from './modules/prompt_manager.js';
 
 // === 挂载到 window（为了让动态生成的 HTML 中的事件委托能访问） ===
 window.downloadSingleImage = Utils.downloadSingleImage;
@@ -397,6 +398,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 模态框关闭
     document.querySelector(DOM.SELECTORS.MODAL_CLOSE)?.addEventListener('click', UI.closeImageModal);
+
+    // 提示词管理模块初始化
+    bindPromptEvents();
 
     console.log('[Init] 事件绑定完成');
 });

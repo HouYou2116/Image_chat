@@ -1,6 +1,11 @@
-from flask import Blueprint, request, jsonify, Response, stream_with_context
+"""
+图像编辑和生成 API 路由
+"""
+
+from flask import request, jsonify, Response, stream_with_context
 from datetime import datetime
 import json
+
 from services.image_service import (
     process_image_edit,
     process_image_generation,
@@ -10,7 +15,9 @@ from services.image_service import (
 from services.logging_config import log_error, api_logger
 from services.config import get_frontend_config, get_default_provider, get_default_model, get_default_temperature
 
-api_bp = Blueprint('api', __name__, url_prefix='/api')
+# 从当前包导入 api_bp
+from . import api_bp
+
 
 @api_bp.route('/edit-image', methods=['POST'])
 def edit_image():
@@ -81,6 +88,7 @@ def edit_image():
         log_error("图像编辑异常", str(e), f"处理耗时: {total_duration:.2f}秒")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
 @api_bp.route('/generate-image', methods=['POST'])
 def generate_image():
     """图像生成功能 - 根据文本描述生成新图像"""
@@ -147,6 +155,7 @@ def generate_image():
         total_duration = (datetime.now() - start_time).total_seconds()
         log_error("图像生成异常", str(e), f"处理耗时: {total_duration:.2f}秒")
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @api_bp.route('/config', methods=['GET'])
 def get_config():

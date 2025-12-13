@@ -1,30 +1,54 @@
-/* Anthropic-inspired Design System
-   Colors:
-   - Bg: #F4F1EA (Warm Beige)
-   - Surface: #FFFFFF (White) or #F9F8F4
-   - Text: #191919 (Near Black)
-   - Accent Orange (Terracotta): #CC785C
-   - Accent Green (Sage): #4F6F52
-   - Accent Purple (Muted): #8A7E9E
-   - Border: #E0DED6
+/* Anthropic-inspired Design System (Phase 3 - Olive/Sage/Lavender/Beige/Charcoal)
+   Color Palette:
+   - Warm Beige: #F4F1EA (页面背景)
+   - Deep Beige: #E8E5DC (次级背景/hover)
+   - Charcoal: #2C2C2C (主文字)
+   - Charcoal Light: #5A5A5A (次级文字)
+   - Olive Green: #6B7F4C (主按钮/强调色)
+   - Olive Dark: #586642 (hover 深色)
+   - Sage Green: #A8B89C (柔和背景/列表 hover)
+   - Muted Lavender: #C5B9D4 (标签背景)
+   - Lavender Dark: #6F6684 (标签文字)
+   - Border: #D6D3CC (边框)
 */
 
 :root {
-    --bg-color: #F4F1EA;
-    --surface-color: #FFFFFF;
-    --text-main: #191919;
-    --text-secondary: #555555;
+    /* === 背景色 === */
+    --bg-primary: #F4F1EA;          /* Warm Beige - 主背景 */
+    --bg-secondary: #E8E5DC;        /* Deep Beige - 次级背景/hover */
+    --surface-color: #FFFFFF;       /* 卡片/表面 */
+    --surface-soft: rgba(168, 184, 156, 0.15);  /* Sage Green 透明淡底 - 列表 hover */
+
+    /* === 文字颜色 === */
+    --text-primary: #2C2C2C;        /* Charcoal - 主文字 */
+    --text-secondary: #5A5A5A;      /* Charcoal Light - 次级文字 */
+
+    /* === 强调色 === */
+    --primary-color: #6B7F4C;       /* Olive Green - 主按钮/选中态 */
+    --primary-hover: #586642;       /* Olive Dark - 按钮 hover */
+    --accent-color: #6B7F4C;        /* Olive Green - 输入框 focus ring */
+
+    /* === 标签颜色 === */
+    --tag-bg: #C5B9D4;              /* Muted Lavender - 标签背景 */
+    --tag-text: #6F6684;            /* Lavender Dark - 标签文字 */
+
+    /* === 边框 === */
     --border-color: #D6D3CC;
 
-    --primary-btn: #191919;
-    --primary-btn-hover: #333333;
+    /* === 兼容旧变量（保留向后兼容）=== */
+    --bg-color: #F4F1EA;
+    --text-main: #2C2C2C;
+    --primary-btn: #6B7F4C;
+    --primary-btn-hover: #586642;
 
-    --accent-orange: #CC785C;
-    --accent-green: #4F6F52;
+    /* 辅助色（保留） */
+    --accent-orange: #CC785C;       /* Terracotta - 警告/次要 */
+    --accent-green: #4F6F52;        /* Sage - 辅助 */
     --accent-green-bg: #E8F0E9;
     --accent-purple: #8A7E9E;
     --accent-purple-bg: #F0EDF5;
 
+    /* === 圆角 === */
     --radius-sm: 6px;
     --radius-md: 12px;
 }

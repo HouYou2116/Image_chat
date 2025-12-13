@@ -433,3 +433,458 @@ select:disabled {
     object-fit: cover;
     display: block;
 }
+
+/* ============================================================================
+   提示词管理按钮样式
+   ============================================================================ */
+
+.prompt-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.btn-prompt {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: none;
+}
+
+.btn-prompt:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.btn-prompt span {
+    font-size: 1rem;
+}
+
+/* ============================================================================
+   提示词库模态框样式
+   ============================================================================ */
+
+.prompt-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(44, 44, 44, 0.5);
+    z-index: 1000;
+    overflow: auto;
+    padding: 20px;
+}
+
+.prompt-modal-content {
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    max-width: 800px;
+    margin: 40px auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.prompt-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-color);
+}
+
+.prompt-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    line-height: 1;
+    box-shadow: none;
+}
+
+.close-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transform: none;
+}
+
+/* 提示词视图容器 */
+.prompt-view {
+    padding: 24px;
+}
+
+/* === 列表视图样式 === */
+
+.prompt-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.prompt-search-wrapper {
+    flex: 1;
+}
+
+.prompt-search-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.prompt-search-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(107, 127, 76, 0.15);
+}
+
+.prompt-sort-select {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.prompt-sort-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(107, 127, 76, 0.15);
+}
+
+/* 标签筛选区 */
+.tag-filter-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    min-height: 32px;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.tag-chip:hover {
+    background: rgba(197, 185, 212, 0.8);
+    border-color: var(--tag-text);
+}
+
+.tag-chip.selected {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.tag-chip.small {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    cursor: default;
+}
+
+.tag-chip.small:hover {
+    background: var(--tag-bg);
+    border-color: transparent;
+}
+
+/* 提示词列表 */
+.prompt-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+}
+
+.prompt-item {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s ease;
+    cursor: pointer;
+}
+
+.prompt-item:last-child {
+    border-bottom: none;
+}
+
+.prompt-item:hover {
+    background: var(--surface-soft);
+}
+
+.prompt-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.prompt-preview {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.4;
+    font-family: monospace;
+}
+
+.prompt-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.prompt-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* 列表项按钮 */
+.prompt-item .btn-use,
+.prompt-item .btn-copy,
+.prompt-item .btn-edit,
+.prompt-item .btn-delete {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    box-shadow: none;
+}
+
+/* 使用按钮（主按钮）*/
+.prompt-item .btn-use {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.prompt-item .btn-use:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(107, 127, 76, 0.3);
+}
+
+/* 复制/编辑按钮（次按钮）*/
+.prompt-item .btn-copy,
+.prompt-item .btn-edit {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.prompt-item .btn-copy:hover,
+.prompt-item .btn-edit:hover {
+    background: var(--bg-secondary);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(0);
+}
+
+/* 删除按钮（危险操作）*/
+.prompt-item .btn-delete {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.prompt-item .btn-delete:hover {
+    background: #FEF2F2;
+    color: #DC2626;
+    border-color: #DC2626;
+    transform: translateY(0);
+}
+
+/* 空状态 */
+.empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* === 编辑视图样式 === */
+
+.prompt-edit-form {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(107, 127, 76, 0.15);
+}
+
+.form-textarea {
+    min-height: 150px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* 编辑视图按钮组 */
+.prompt-edit-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    justify-content: flex-start;
+}
+
+.prompt-edit-actions .btn {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.prompt-edit-actions .btn-primary {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.prompt-edit-actions .btn-primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(107, 127, 76, 0.3);
+}
+
+.prompt-edit-actions .btn-secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.prompt-edit-actions .btn-secondary:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(0);
+}
+
+.prompt-edit-actions .btn-text {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.prompt-edit-actions .btn-text:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    transform: translateY(0);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .prompt-modal-content {
+        margin: 20px auto;
+    }
+
+    .prompt-controls {
+        flex-direction: column;
+    }
+
+    .prompt-sort-select {
+        width: 100%;
+    }
+
+    .prompt-edit-actions {
+        flex-direction: column;
+    }
+
+    .prompt-edit-actions .btn {
+        width: 100%;
+    }
+}
+

@@ -42,14 +42,14 @@ ENV/
 .env
 
 # ==========================
-# 用户自定义忽略项 (新增部分)
+# 用户自定义忽略项 
 # ==========================
 
 # 1. 自动生成的输出目录 (已有，保留)
 output/
 
-# 2. 供应商开发文档
-供应商开发文档/
+# 2. Provider Docs
+Provider Docs/
 
 # 3. Claude Code 配置
 .claude/
@@ -61,14 +61,22 @@ sample/
 CLAUDE.md
 tasks.md
 problems.md
-taskON.md
+TaskON.md
 testAPI.txt
 tasks list.md
+PROMPT_API.md
 
 # 6. 操作系统生成文件
 .DS_Store
 Thumbs.db
 
-# 7. 日志文件 (建议添加，我看你有 app.log)
+# 7. 日志文件
 logs/
 *.log
+
+# 8. 提示词数据目录
+data/
+
+# 9. 测试脚本
+test_prompt_service.py
+api.py.backup

@@ -1,0 +1,92 @@
+<!-- 提示词库模态框 -->
+<div id="prompt-modal" class="prompt-modal" style="display: none;">
+    <div class="prompt-modal-content">
+        <div class="prompt-modal-header">
+            <h2>提示词库</h2>
+            <button id="btn-close-prompt-modal" class="close-btn" aria-label="关闭">&times;</button>
+        </div>
+
+        <!-- 列表视图（默认显示）-->
+        <div id="prompt-list-view" class="prompt-view">
+            <!-- 搜索和筛选区 -->
+            <div class="prompt-controls">
+                <div class="prompt-search-wrapper">
+                    <input
+                        type="text"
+                        id="prompt-search"
+                        class="prompt-search-input"
+                        placeholder="搜索提示词..."
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div class="prompt-filters">
+                    <select id="prompt-sort" class="prompt-sort-select">
+                        <option value="used">最近使用</option>
+                        <option value="freq">使用次数</option>
+                        <option value="updated">最近更新</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 标签筛选区 -->
+            <div id="tag-filter-container" class="tag-filter-container">
+                <!-- 标签 chips 由 JS 动态渲染 -->
+            </div>
+
+            <!-- 提示词列表 -->
+            <div id="prompt-list" class="prompt-list">
+                <!-- 列表项由 JS 动态渲染 -->
+                <div class="empty-state">暂无提示词</div>
+            </div>
+        </div>
+
+        <!-- 编辑视图（默认隐藏）-->
+        <div id="prompt-edit-view" class="prompt-view" style="display: none;">
+            <div class="prompt-edit-form">
+                <!-- 标题 -->
+                <div class="form-group">
+                    <label for="edit-label">标题</label>
+                    <input
+                        type="text"
+                        id="edit-label"
+                        class="form-input"
+                        placeholder="输入提示词标题..."
+                        autocomplete="off"
+                    >
+                </div>
+
+                <!-- 内容 -->
+                <div class="form-group">
+                    <label for="edit-content">内容</label>
+                    <textarea
+                        id="edit-content"
+                        class="form-textarea"
+                        placeholder="输入提示词内容..."
+                        rows="8"
+                    ></textarea>
+                </div>
+
+                <!-- 标签输入 -->
+                <div class="form-group">
+                    <label for="edit-tags">标签</label>
+                    <input
+                        type="text"
+                        id="edit-tags"
+                        class="form-input"
+                        placeholder="输入标签（逗号、空格或回车分隔）..."
+                        autocomplete="off"
+                    >
+                    <small class="form-hint">支持逗号、空格或回车分隔多个标签</small>
+                </div>
+
+                <!-- 按钮组 -->
+                <div class="prompt-edit-actions">
+                    <button id="btn-save-edit" class="btn btn-primary">保存</button>
+                    <button id="btn-cancel-edit" class="btn btn-secondary">取消</button>
+                    <button id="btn-close-edit" class="btn btn-text">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

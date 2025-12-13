@@ -39,6 +39,7 @@
 - 批量下载功能
 - 完整的操作日志记录（`logs/` 目录）
 - 流式处理（SSE 实时显示生成进度）
+- 📝 **提示词库**：本地保存常用提示词，支持标签管理和快速调用
 
 ## 🔍 提供商特性对比
 
@@ -202,6 +203,25 @@
 - `2K` - 高清分辨率
 - `4K` - 超高清分辨率
 
+- `2K` - 高清分辨率
+- `4K` - 超高清分辨率
+
+### 📝 提示词库使用
+
+1. **保存提示词**
+   - 在编辑或生成模式输入框旁，点击"保存提示词"按钮
+   - 输入标题、内容和标签（可选）
+   - 点击保存即可归档
+
+2. **调用提示词**
+   - 点击"打开提示词库"按钮（书本图标）
+   - 浏览、搜索或按标签筛选提示词
+   - 点击"使用"将内容填充到当前输入框（覆盖）
+
+3. **管理功能**
+   - 支持编辑、删除和复制提示词内容
+   - 自动记录提示词的使用次数，支持按"最近使用"或"使用频率"排序
+
 ### AUTO 自动模式使用
 
 1. 切换到"编辑模式"或"生成模式"标签页
@@ -274,17 +294,30 @@ Image_chat/
 ├── pyproject.toml                  # uv 包管理配置
 ├── requirements.txt                # pip 依赖清单
 ├── .python-version                 # Python 版本指定（3.12）
+├── .env.example                    # 环境变量示例（复制为 .env 使用）
+├── .gitignore                      # Git 忽略文件配置
 ├── README.md                       # 项目文档
+├── .gitignore                      # Git 忽略文件配置
+│
+├── data/                           # 数据存储（本地数据库）
+│   └── prompts.json                # 提示词数据（JSON 文件，自动创建）
 │
 ├── routes/                         # 路由层
+│   ├── __init__.py
 │   ├── main.py                     # 主页和下载路由
-│   └── api.py                      # API 接口路由
+│   └── api/                        # API 接口路由
+│       ├── __init__.py
+│       ├── images.py               # 图像处理接口
+│       └── prompts.py              # 提示词库接口
 │
 ├── services/                       # 业务逻辑层
+│   ├── __init__.py
 │   ├── config.py                   # 配置管理中心
 │   ├── image_service.py            # 图像处理业务逻辑
 │   ├── logging_config.py           # 日志配置
-│   └── providers/                  # AI 服务商实现
+│   ├── retry_utils.py              # 重试机制工具
+│   └── providers/                  # AI 服务商抽象层
+│       ├── __init__.py
 │       ├── base.py                 # ImageProvider 抽象基类
 │       ├── google.py               # Google Gemini 实现
 │       ├── openrouter.py           # OpenRouter 实现
@@ -294,15 +327,41 @@ Image_chat/
 │   ├── base.html                   # Jinja2 基础模板
 │   ├── index.html                  # 主页
 │   └── partials/                   # 模板片段
+│       ├── _api_key.html           # API Key 配置
+│       ├── _edit_form.html         # 编辑表单
+│       ├── _generate_form.html     # 生成表单
+│       ├── _modal.html             # 模态框
+│       ├── _prompt_modal.html      # 提示词库模态框
+│       ├── _results.html           # 结果展示
+│       └── _tabs.html              # 标签页
 │
-├── static/                         # 前端静态资源
-│   ├── css/                        # 模块化样式表
+├── static/                         # 前端静态资源（ES6 模块化）
+│   ├── css/                        # 样式表
+│   │   ├── base.css                # 基础样式
+│   │   ├── components.css          # 组件样式
+│   │   ├── layout.css              # 布局样式
+│   │   ├── modal.css               # 模态框样式
+│   │   └── variables.css           # CSS 变量定义
 │   └── js/                         # JavaScript 模块
 │       ├── main.js                 # 应用入口（ES6 Module）
+│       ├── api.js                  # API 调用模块
+│       ├── config.js               # 配置管理模块
+│       ├── state.js                # 状态管理模块
+│       ├── ui.js                   # UI 交互模块
+│       ├── utils.js                # 工具函数
+│       ├── workflow.js             # 工作流管理
 │       └── modules/                # 业务模块
+│           ├── prompt_manager.js   # 提示词库管理
+│           └── ui/                 # UI 子模块
+│               ├── auto_ui.js      # AUTO 模式 UI
+│               ├── base.js         # UI 基础类
+│               ├── dom_map.js      # DOM 元素映射
+│               ├── forms.js        # 表单处理
+│               └── gallery.js      # 图片展示
 │
-├── logs/                           # 日志目录（自动创建）
-└── output/                         # 生成图片存储（自动创建）
+├── logs/                           # 日志目录（运行时创建）
+│
+└── output/                         # 生成图片存储（运行时创建）
 ```
 
 ## ❓ 常见问题
